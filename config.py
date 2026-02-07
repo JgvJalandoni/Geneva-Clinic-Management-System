@@ -1,6 +1,7 @@
 """
-Configuration file for Tita's Clinic Management System
-Contains all constants, color schemes, and application settings
+Configuration file for Geneva Clinic Management System
+Made by Rainberry Corp. | Designed by Jesbert V. Jalandoni
+https://jalandoni.jesbert.cloud/
 """
 
 import customtkinter as ctk
@@ -27,32 +28,32 @@ WINDOW_MIN_SIZE = (1200, 700)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 COLORS = {
-    # Backgrounds - Soft whites with warm tint to reduce glare
-    'bg_dark': '#f5f7fa',           # Soft light gray (main background)
+    # Backgrounds - Modern clean look
+    'bg_dark': '#f0f4f8',           # Cool light gray (main background)
     'bg_card': '#ffffff',           # Pure white (cards)
-    'bg_card_hover': '#e8f4f8',     # Light blue hover (gentle feedback)
-    
-    # Accents - High contrast, saturated colors for clarity
-    'accent_blue': '#0066cc',       # Strong blue (primary actions)
-    'accent_green': '#28a745',      # Vibrant green (success/positive)
-    'accent_red': '#dc3545',        # Clear red (warnings/alerts)
-    'accent_orange': '#fd7e14',     # Bright orange (secondary actions)
-    'accent_purple': '#6f42c1',     # Purple (special items)
-    
-    # Text - High contrast black for readability
-    'text_primary': '#1a1a1a',      # Near-black (main text)
-    'text_secondary': '#6c757d',    # Medium gray (secondary text)
-    'text_muted': '#999999',        # Light gray (hints/placeholders)
-    
-    # Borders - Subtle but visible
-    'border': '#dee2e6',            # Light gray border
-    'border_focus': '#80bdff',      # Blue border for focused elements
-    
-    # Status colors - Clear visual feedback
-    'status_success': '#d4edda',    # Light green background
-    'status_warning': '#fff3cd',    # Light yellow background
-    'status_danger': '#f8d7da',     # Light red background
-    'status_info': '#d1ecf1',       # Light blue background
+    'bg_card_hover': '#f8fafc',     # Very light hover
+
+    # Accents - Modern vibrant colors
+    'accent_blue': '#3b82f6',       # Modern blue (primary actions)
+    'accent_green': '#22c55e',      # Fresh green (success/positive)
+    'accent_red': '#ef4444',        # Modern red (warnings/alerts)
+    'accent_orange': '#f97316',     # Warm orange (encoding/special)
+    'accent_purple': '#8b5cf6',     # Soft purple (special items)
+
+    # Text - Clean readable contrast
+    'text_primary': '#1e293b',      # Slate dark (main text)
+    'text_secondary': '#64748b',    # Slate medium (secondary text)
+    'text_muted': '#94a3b8',        # Slate light (hints/placeholders)
+
+    # Borders - Subtle
+    'border': '#e2e8f0',            # Light slate border
+    'border_focus': '#3b82f6',      # Blue border for focused elements
+
+    # Status colors
+    'status_success': '#dcfce7',    # Light green background
+    'status_warning': '#fef3c7',    # Light yellow background
+    'status_danger': '#fee2e2',     # Light red background
+    'status_info': '#dbeafe',       # Light blue background
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════

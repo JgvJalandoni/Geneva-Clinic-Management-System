@@ -170,94 +170,66 @@ def validate_date(date_str: str) -> tuple[bool, str]:
 
 def validate_weight(weight: Optional[float]) -> tuple[bool, str]:
     """
-    Validate weight value
-    
+    Validate weight value - no limits enforced
+
     Args:
         weight: Weight value to validate
-        
+
     Returns:
-        Tuple of (is_valid, error_message)
+        Tuple of (is_valid, error_message) - always valid
     """
-    if weight is None:
-        return True, ""  # Optional field
-    
-    if not (VALIDATION['weight_min'] <= weight <= VALIDATION['weight_max']):
-        return False, f"Weight must be between {VALIDATION['weight_min']} and {VALIDATION['weight_max']} kg"
-    
     return True, ""
 
 
 def validate_height(height: Optional[float]) -> tuple[bool, str]:
     """
-    Validate height value
-    
+    Validate height value - no limits enforced
+
     Args:
         height: Height value to validate
-        
+
     Returns:
-        Tuple of (is_valid, error_message)
+        Tuple of (is_valid, error_message) - always valid
     """
-    if height is None:
-        return True, ""  # Optional field
-    
-    if not (VALIDATION['height_min'] <= height <= VALIDATION['height_max']):
-        return False, f"Height must be between {VALIDATION['height_min']} and {VALIDATION['height_max']} cm"
-    
     return True, ""
 
 
 def validate_temperature(temp: Optional[float]) -> tuple[bool, str]:
     """
-    Validate temperature value
-    
+    Validate temperature value - no limits enforced
+
     Args:
         temp: Temperature value to validate
-        
+
     Returns:
-        Tuple of (is_valid, error_message)
+        Tuple of (is_valid, error_message) - always valid
     """
-    if temp is None:
-        return True, ""  # Optional field
-    
-    if not (VALIDATION['temp_min'] <= temp <= VALIDATION['temp_max']):
-        return False, f"Temperature must be between {VALIDATION['temp_min']} and {VALIDATION['temp_max']} °C"
-    
     return True, ""
 
 
 def validate_patient_name(name: str) -> tuple[bool, str]:
     """
-    Validate patient name
-    
+    Validate patient name - no limits enforced
+
     Args:
         name: Patient name to validate
-        
+
     Returns:
-        Tuple of (is_valid, error_message)
+        Tuple of (is_valid, error_message) - always valid
     """
-    if not name or len(name.strip()) < VALIDATION['name_min_length']:
-        return False, f"Full Name is required (minimum {VALIDATION['name_min_length']} characters)"
-    
     return True, ""
 
 
 def validate_contact_number(contact: str) -> tuple[bool, str]:
     """
-    Validate contact number (if provided)
-    
+    Validate contact number - no limits enforced
+
     Args:
         contact: Contact number to validate
-        
+
     Returns:
-        Tuple of (is_valid, warning_message)
+        Tuple of (is_valid, warning_message) - always valid
     """
-    if not contact:
-        return True, ""  # Optional field
-    
-    contact = contact.strip()
-    if len(contact) < VALIDATION['contact_min_length'] or len(contact) > VALIDATION['contact_max_length']:
-        return False, f"Contact number seems unusual (expected {VALIDATION['contact_min_length']}-{VALIDATION['contact_max_length']} digits)"
-    
     return True, ""
 
 
