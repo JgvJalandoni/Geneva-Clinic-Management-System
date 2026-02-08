@@ -8,7 +8,6 @@ import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 import datetime
 import os
-import subprocess
 import sys
 from typing import Optional, Dict, List
 
@@ -928,10 +927,7 @@ class ClinicApp(ctk.CTk):
                                "Are you sure you want to shut down the computer?\n\n"
                                "Make sure all work is saved.",
                                icon="warning"):
-            try:
-                subprocess.Popen(["sudo", "shutdown", "-h", "now"])
-            except Exception as e:
-                messagebox.showerror("Error", f"Shutdown failed:\n{e}")
+            os.system("sudo poweroff")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1893,7 +1889,7 @@ class CalendarDialog(ctk.CTkToplevel):
         self.geometry(f"400x450+{(sx - 400) // 2}+{(sy - 450) // 2}")
     
     def _build_calendar(self):
-        """Build calendar UI - Modern horizontal layout with year arrows"""
+        """Build calendar UI - Modern horizontal layout with year input"""
         # Header with month/year navigation
         header = ctk.CTkFrame(self, fg_color=COLORS['bg_card'], corner_radius=18, height=80)
         header.pack(fill="x", padx=15, pady=15)
@@ -1908,10 +1904,14 @@ class CalendarDialog(ctk.CTkToplevel):
                      fg_color=COLORS['accent_purple'], hover_color="#7c3aed",
                      corner_radius=15, font=(FONT_FAMILY, 14, "bold")).pack(side="left", padx=(15, 5))
 
-        self.lbl_year = ctk.CTkLabel(year_row, text="",
-                                    font=(FONT_FAMILY, 16, "bold"),
-                                    text_color=COLORS['text_primary'])
-        self.lbl_year.pack(side="left", expand=True)
+        self.entry_year = ctk.CTkEntry(year_row, width=80, height=32,
+                                       font=(FONT_FAMILY, 16, "bold"),
+                                       justify="center",
+                                       border_width=1,
+                                       border_color=COLORS['border'])
+        self.entry_year.pack(side="left", expand=True)
+        self.entry_year.bind("<Return>", lambda e: self._on_year_entered())
+        self.entry_year.bind("<FocusOut>", lambda e: self._on_year_entered())
 
         ctk.CTkButton(year_row, text=">>", width=45, height=32,
                      command=self._next_year,
@@ -1952,6 +1952,16 @@ class CalendarDialog(ctk.CTkToplevel):
         """Go to next year"""
         self.selected_date = datetime.date(self.selected_date.year + 1, self.selected_date.month, 1)
         self._draw_calendar()
+
+    def _on_year_entered(self):
+        """Handle year typed into the entry field"""
+        try:
+            year = int(self.entry_year.get().strip())
+            if 1900 <= year <= 2100:
+                self.selected_date = datetime.date(year, self.selected_date.month, 1)
+                self._draw_calendar()
+        except (ValueError, TypeError):
+            pass
     
     def _draw_calendar(self):
         """Draw calendar grid - O(1) for 7x6 fixed grid"""
@@ -1960,7 +1970,8 @@ class CalendarDialog(ctk.CTkToplevel):
             widget.destroy()
 
         # Update header labels
-        self.lbl_year.configure(text=str(self.selected_date.year))
+        self.entry_year.delete(0, "end")
+        self.entry_year.insert(0, str(self.selected_date.year))
         self.lbl_month.configure(text=self.selected_date.strftime("%B"))
         
         # Day headers
@@ -2859,8 +2870,6 @@ class FirstRunSetup(ctk.CTk):
         self.success = False
 
         self.title("Geneva Clinic - Initial Setup")
-        self.geometry("500x850")
-        self.resizable(False, False)
         self.configure(fg_color=COLORS['bg_dark'])
         self.attributes('-fullscreen', True)
 
@@ -2990,8 +2999,6 @@ class LoginWindow(ctk.CTk):
         self.success = False
 
         self.title("Geneva Clinic - Login")
-        self.geometry("500x720")
-        self.resizable(False, False)
         self.configure(fg_color=COLORS['bg_dark'])
         self.attributes('-fullscreen', True)
 

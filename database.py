@@ -17,14 +17,16 @@ class ClinicDatabase:
     
     def __init__(self, db_name: str = DB_NAME):
         self.db_name = db_name
+        self._conn = None
         self.init_db()
-    
+
     def get_connection(self) -> sqlite3.Connection:
-        """Create and return a database connection with Row factory"""
-        conn = sqlite3.connect(self.db_name)
-        conn.row_factory = sqlite3.Row
-        conn.execute("PRAGMA foreign_keys = ON")
-        return conn
+        """Return cached database connection (reused for performance)"""
+        if self._conn is None:
+            self._conn = sqlite3.connect(self.db_name)
+            self._conn.row_factory = sqlite3.Row
+            self._conn.execute("PRAGMA foreign_keys = ON")
+        return self._conn
     
     def init_db(self):
         """Initialize database schema - OPTIMIZED structure with separated name fields"""
