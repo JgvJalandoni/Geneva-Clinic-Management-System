@@ -927,7 +927,7 @@ class ClinicApp(ctk.CTk):
                                "Are you sure you want to shut down the computer?\n\n"
                                "Make sure all work is saved.",
                                icon="warning"):
-            os.system("systemctl poweroff")
+            os.system("sudo poweroff")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
