@@ -1,8 +1,8 @@
 #!/bin/bash
 echo "============================================"
 echo " Geneva Clinic - Linux Build"
-echo " Made by Rainberry Corp."
-echo " Designed by Jesbert V. Jalandoni"
+echo " © 2026 Rainberry Corp. All rights reserved."
+echo " Created and Designed by Jesbert V. Jalandoni"
 echo "============================================"
 echo
 

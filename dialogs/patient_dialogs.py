@@ -52,7 +52,7 @@ class NewPatientDialog(BaseDialog):
         
         # Patient Notes
         ctk.CTkLabel(form_container, text="Patient Notes",
-                    font=("Segoe UI", 12),
+                    font=("Segoe UI", 14),
                     text_color=COLORS['text_secondary']).pack(anchor="w", pady=(10, 5))
         self.txt_notes = ctk.CTkTextbox(form_container, height=100,
                                        fg_color=COLORS['bg_card'],
@@ -150,7 +150,7 @@ class EditPatientDialog(BaseDialog):
         
         # Patient Notes
         ctk.CTkLabel(form_container, text="Patient Notes",
-                    font=("Segoe UI", 12),
+                    font=("Segoe UI", 14),
                     text_color=COLORS['text_secondary']).pack(anchor="w", pady=(10, 5))
         self.txt_notes = ctk.CTkTextbox(form_container, height=100,
                                        fg_color=COLORS['bg_card'],
@@ -233,7 +233,7 @@ class PatientHistoryDialog(BaseDialog):
         
         # Stats (will be filled by load_data)
         self.lbl_stats = ctk.CTkLabel(header, text="",
-                                     font=("Segoe UI", 11),
+                                     font=("Segoe UI", 13),
                                      text_color="#e3f2fd")
         self.lbl_stats.pack(pady=(5, 10))
         
@@ -259,13 +259,13 @@ class PatientHistoryDialog(BaseDialog):
                        foreground=COLORS['text_primary'],
                        fieldbackground=COLORS['bg_card'],
                        borderwidth=0,
-                       rowheight=35,
-                       font=("Segoe UI", 11))
+                       rowheight=48,
+                       font=("Segoe UI", 14))
         style.configure("History.Treeview.Heading",
                        background=COLORS['border'],
                        foreground=COLORS['text_primary'],
                        relief="flat",
-                       font=("Segoe UI", 11, "bold"))
+                       font=("Segoe UI", 14, "bold"))
         style.map("History.Treeview",
                  background=[("selected", COLORS['accent_blue'])])
         

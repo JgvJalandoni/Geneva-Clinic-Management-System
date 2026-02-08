@@ -1,8 +1,8 @@
 @echo off
 echo ============================================
 echo  Geneva Clinic - Windows Build
-echo  Made by Rainberry Corp.
-echo  Designed by Jesbert V. Jalandoni
+echo  (c) 2026 Rainberry Corp. All rights reserved.
+echo  Created and Designed by Jesbert V. Jalandoni
 echo ============================================
 echo.
 

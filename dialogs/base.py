@@ -33,11 +33,13 @@ class BaseDialog(ctk.CTkToplevel):
         # Styling
         self.configure(fg_color=COLORS['bg_dark'])
         
-        # Center window on parent
+        # Center window on screen
         self.update_idletasks()
-        x = parent.winfo_x() + (parent.winfo_width() // 2) - (width // 2)
-        y = parent.winfo_y() + (parent.winfo_height() // 2) - (height // 2)
-        self.geometry(f"+{x}+{y}")
+        sx = self.winfo_screenwidth()
+        sy = self.winfo_screenheight()
+        x = (sx - width) // 2
+        y = (sy - height) // 2
+        self.geometry(f"{width}x{height}+{x}+{y}")
     
     def create_header(self, emoji: str, title: str, subtitle: str = "", 
                      color: str = None, height: int = 80):
@@ -68,12 +70,12 @@ class BaseDialog(ctk.CTkToplevel):
         
         # Title
         ctk.CTkLabel(header, text=title, 
-                    font=("Segoe UI", 18, "bold")).pack()
+                    font=("Segoe UI", 20, "bold")).pack()
         
         # Subtitle (optional)
         if subtitle:
             ctk.CTkLabel(header, text=subtitle,
-                        font=("Segoe UI", 11 if len(subtitle) < 50 else 10), 
+                        font=("Segoe UI", 13 if len(subtitle) < 50 else 12), 
                         text_color="#e8f5e9").pack(pady=(5, 10))
         else:
             # Add padding if no subtitle
@@ -130,7 +132,7 @@ class BaseDialog(ctk.CTkToplevel):
                                border_width=border_width,
                                border_color=border_color,
                                height=45,
-                               font=("Segoe UI", 13, "bold" if style == 'primary' else "normal"))
+                               font=("Segoe UI", 14, "bold" if style == 'primary' else "normal"))
             
             padding = (0, 5) if side == 'left' else (5, 0)
             btn.pack(side=side, fill="x", expand=True, padx=padding)
@@ -154,7 +156,7 @@ class BaseDialog(ctk.CTkToplevel):
         # Label
         ctk.CTkLabel(parent, 
                     text=label, 
-                    font=("Segoe UI", 12),
+                    font=("Segoe UI", 14),
                     text_color=COLORS['text_secondary']).pack(anchor="w", pady=(10, 5))
         
         # Field
@@ -164,7 +166,7 @@ class BaseDialog(ctk.CTkToplevel):
                                   fg_color=COLORS['bg_card'],
                                   border_width=1,
                                   border_color=COLORS['border'],
-                                  font=("Segoe UI", 12))
+                                  font=("Segoe UI", 14))
         else:  # entry
             field = ctk.CTkEntry(parent,
                                height=40,
@@ -193,7 +195,7 @@ class BaseDialog(ctk.CTkToplevel):
         
         ctk.CTkLabel(info_frame, 
                     text=f"{icon} {message}",
-                    font=("Segoe UI", 11),
+                    font=("Segoe UI", 14),
                     text_color=COLORS['text_secondary'],
                     wraplength=450).pack(pady=10, padx=10)
         

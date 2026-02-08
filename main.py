@@ -65,6 +65,7 @@ class ClinicApp(ctk.CTk):
         self.geometry(WINDOW_SIZE)
         self.minsize(*WINDOW_MIN_SIZE)
         self.configure(fg_color=COLORS['bg_dark'])
+        self.attributes('-fullscreen', True)
         
         # Current view tracking - O(1) state management
         self.current_view = "overview"
@@ -130,12 +131,12 @@ class ClinicApp(ctk.CTk):
         logo_frame.pack(fill="x", padx=20, pady=(30, 40))
         logo_frame.pack_propagate(False)
         
-        ctk.CTkLabel(logo_frame, text="🏥", font=("Segoe UI", 36)).pack()
-        ctk.CTkLabel(logo_frame, text="Geneva Clinic", 
-                    font=("Segoe UI", 20, "bold"),
+        ctk.CTkLabel(logo_frame, text="🏥", font=("Segoe UI", 40)).pack()
+        ctk.CTkLabel(logo_frame, text="Geneva Clinic",
+                    font=("Segoe UI", 22, "bold"),
                     text_color=COLORS['text_primary']).pack()
-        ctk.CTkLabel(logo_frame, text="Patient Management", 
-                    font=("Segoe UI", 11),
+        ctk.CTkLabel(logo_frame, text="Patient Management",
+                    font=("Segoe UI", 13, "bold"),
                     text_color=COLORS['text_secondary']).pack()
         
         # Navigation buttons - O(1) dict lookup for view switching
@@ -154,8 +155,8 @@ class ClinicApp(ctk.CTk):
         self.nav_buttons["overview"].configure(fg_color=COLORS['accent_blue'])
         
         # Quick Actions section
-        ctk.CTkLabel(sidebar, text="QUICK ACTIONS", 
-                    font=("Segoe UI", 10, "bold"),
+        ctk.CTkLabel(sidebar, text="QUICK ACTIONS",
+                    font=("Segoe UI", 14, "bold"),
                     text_color=COLORS['text_secondary']).pack(padx=20, pady=(20, 10), anchor="w")
         
         # New Visit button - PRIMARY ACTION
@@ -163,16 +164,16 @@ class ClinicApp(ctk.CTk):
                      command=self._open_new_visit_dialog,
                      fg_color=COLORS['accent_green'],
                      hover_color="#16a34a",
-                     height=48, corner_radius=18,
-                     font=("Segoe UI", 14, "bold")).pack(fill="x", padx=15, pady=4)
+                     height=52, corner_radius=18,
+                     font=("Segoe UI", 16, "bold")).pack(fill="x", padx=15, pady=4)
 
         # Encode Visit button - FOR OLD RECORDS
         ctk.CTkButton(sidebar, text="Encode Old Record",
                      command=self._open_encode_dialog,
                      fg_color=COLORS['accent_orange'],
                      hover_color="#ea580c",
-                     height=48, corner_radius=18,
-                     font=("Segoe UI", 14, "bold")).pack(fill="x", padx=15, pady=4)
+                     height=52, corner_radius=18,
+                     font=("Segoe UI", 16, "bold")).pack(fill="x", padx=15, pady=4)
         
         # Bottom section
         bottom_frame = ctk.CTkFrame(sidebar, fg_color="transparent")
@@ -180,27 +181,30 @@ class ClinicApp(ctk.CTk):
         
         ctk.CTkButton(bottom_frame, text="💾 Backup", command=self.backup_db,
                      fg_color=COLORS['accent_green'], hover_color="#1e7e34",
-                     height=38, corner_radius=20).pack(fill="x", pady=5)
-        
+                     height=44, corner_radius=20,
+                     font=("Segoe UI", 14, "bold")).pack(fill="x", pady=5)
+
         ctk.CTkButton(bottom_frame, text="📊 Export", command=self.export_data,
                      fg_color=COLORS['accent_orange'], hover_color="#e06700",
-                     height=38, corner_radius=20).pack(fill="x", pady=5)
+                     height=44, corner_radius=20,
+                     font=("Segoe UI", 14, "bold")).pack(fill="x", pady=5)
 
         ctk.CTkButton(bottom_frame, text="⚙ Admin Settings", command=self._open_admin_settings,
                      fg_color=COLORS['accent_purple'], hover_color="#7c3aed",
-                     height=38, corner_radius=20).pack(fill="x", pady=5)
+                     height=44, corner_radius=20,
+                     font=("Segoe UI", 14, "bold")).pack(fill="x", pady=5)
 
         # Branding
         brand_frame = ctk.CTkFrame(sidebar, fg_color="transparent")
         brand_frame.pack(side="bottom", fill="x", padx=20, pady=(0, 15))
-        ctk.CTkLabel(brand_frame, text="Made by Rainberry Corp.",
-                    font=("Segoe UI", 10, "bold"),
+        ctk.CTkLabel(brand_frame, text="\u00a9 2026 Rainberry Corp. All rights reserved.",
+                    font=("Segoe UI", 12, "bold"),
                     text_color=COLORS['text_muted']).pack()
-        ctk.CTkLabel(brand_frame, text="Designed by Jesbert V. Jalandoni",
-                    font=("Segoe UI", 9),
+        ctk.CTkLabel(brand_frame, text="Created and Designed by Jesbert V. Jalandoni",
+                    font=("Segoe UI", 11),
                     text_color=COLORS['text_muted']).pack()
         site_label = ctk.CTkLabel(brand_frame, text="jalandoni.jesbert.cloud",
-                    font=("Segoe UI", 9, "underline"),
+                    font=("Segoe UI", 11, "underline"),
                     text_color=COLORS['accent_blue'], cursor="hand2")
         site_label.pack()
         site_label.bind("<Button-1>", lambda e: __import__('webbrowser').open("https://jalandoni.jesbert.cloud/"))
@@ -211,7 +215,7 @@ class ClinicApp(ctk.CTk):
             parent, text=f"{icon}  {text}", command=lambda: self._switch_view(view_id),
             fg_color="transparent", hover_color=COLORS['bg_card_hover'],
             text_color=COLORS['text_primary'], anchor="w",
-            height=46, corner_radius=20, font=("Segoe UI", 13, "bold")
+            height=50, corner_radius=20, font=("Segoe UI", 15, "bold")
         )
         btn.pack(fill="x", padx=15, pady=2)
         return btn
@@ -224,8 +228,8 @@ class ClinicApp(ctk.CTk):
 
         # Clock on the right
         self.lbl_clock = ctk.CTkLabel(header, text="",
-                                     font=("Segoe UI", 14),
-                                     text_color=COLORS['text_secondary'])
+                                     font=("Segoe UI", 20, "bold"),
+                                     text_color=COLORS['text_primary'])
         self.lbl_clock.pack(side="right", padx=10)
     
     # ═══════════════════════════════════════════════════════════════════════════
@@ -299,15 +303,16 @@ class ClinicApp(ctk.CTk):
         header.pack(fill="x", padx=20, pady=(20, 10))
         header.pack_propagate(False)
         
-        ctk.CTkLabel(header, text="📋 Recent Patient Appointments", 
-                    font=("Segoe UI", 16, "bold"),
+        ctk.CTkLabel(header, text="📋 Recent Patient Appointments",
+                    font=("Segoe UI", 20, "bold"),
                     text_color=COLORS['text_primary']).pack(side="left")
-        
+
         ctk.CTkButton(header, text="🔍 Search patient...", command=self._focus_search,
                      fg_color=COLORS['bg_dark'], hover_color=COLORS['bg_card_hover'],
                      text_color=COLORS['text_primary'],
-                     height=35, width=200, corner_radius=20,
-                     border_width=1, border_color=COLORS['border']).pack(side="right")
+                     height=42, width=240, corner_radius=20,
+                     border_width=1, border_color=COLORS['border'],
+                     font=("Segoe UI", 14, "bold")).pack(side="right")
         
         # Table
         self.tree_overview = self._create_optimized_tree(visits_frame,
@@ -337,19 +342,19 @@ class ClinicApp(ctk.CTk):
         ctk.CTkButton(overview_pg_content, text="◀ Previous",
                      command=self._overview_prev_page,
                      fg_color=COLORS['accent_blue'], hover_color="#0052a3",
-                     height=35, width=100, corner_radius=15,
-                     font=("Segoe UI", 12, "bold")).pack(side="left", padx=10)
+                     height=40, width=120, corner_radius=15,
+                     font=("Segoe UI", 14, "bold")).pack(side="left", padx=10)
 
         self.lbl_overview_page = ctk.CTkLabel(overview_pg_content, text="Page 1 of 1",
-                                              font=("Segoe UI", 13, "bold"),
+                                              font=("Segoe UI", 15, "bold"),
                                               text_color=COLORS['text_primary'])
         self.lbl_overview_page.pack(side="left", padx=20)
 
         ctk.CTkButton(overview_pg_content, text="Next ▶",
                      command=self._overview_next_page,
                      fg_color=COLORS['accent_blue'], hover_color="#0052a3",
-                     height=35, width=100, corner_radius=15,
-                     font=("Segoe UI", 12, "bold")).pack(side="left", padx=10)
+                     height=40, width=120, corner_radius=15,
+                     font=("Segoe UI", 14, "bold")).pack(side="left", padx=10)
     
     def _create_stat_card(self, parent, title: str, value: str, color: str):
         """Create stat card widget - returns frame with update references"""
@@ -362,7 +367,7 @@ class ClinicApp(ctk.CTk):
 
         # Title
         ctk.CTkLabel(content, text=title,
-                    font=("Segoe UI", 14),
+                    font=("Segoe UI", 16, "bold"),
                     text_color=COLORS['text_secondary']).pack(anchor="w")
 
         # Value (store reference for O(1) updates)
@@ -397,27 +402,28 @@ class ClinicApp(ctk.CTk):
         left_frame = ctk.CTkFrame(header_content, fg_color="transparent")
         left_frame.pack(side="left", fill="y")
         
-        ctk.CTkLabel(left_frame, text="👥 All Patients", 
-                    font=("Segoe UI", 20, "bold"),
+        ctk.CTkLabel(left_frame, text="👥 All Patients",
+                    font=("Segoe UI", 22, "bold"),
                     text_color=COLORS['text_primary']).pack(side="left", padx=(0, 15))
-        
+
         ctk.CTkButton(left_frame, text="➕ Add Patient",
                      command=self._open_add_patient_dialog,
                      fg_color=COLORS['accent_blue'], hover_color="#0052a3",
-                     height=40, corner_radius=20, font=("Segoe UI", 13, "bold")).pack(side="left", padx=(0, 10))
+                     height=44, corner_radius=20, font=("Segoe UI", 15, "bold")).pack(side="left", padx=(0, 10))
 
         ctk.CTkButton(left_frame, text="🔄 Refresh",
                      command=self._search_patients,
                      fg_color=COLORS['accent_green'], hover_color="#1e7e34",
-                     height=40, corner_radius=20, font=("Segoe UI", 13, "bold")).pack(side="left")
+                     height=44, corner_radius=20, font=("Segoe UI", 15, "bold")).pack(side="left")
 
         # Right: Search bar
         search_frame = ctk.CTkFrame(header_content, fg_color="transparent")
         search_frame.pack(side="right")
         
-        self.entry_patient_search = ctk.CTkEntry(search_frame, 
+        self.entry_patient_search = ctk.CTkEntry(search_frame,
                                                 placeholder_text="🔍 Search patients...",
-                                                width=300, height=40, corner_radius=20)
+                                                width=350, height=48, corner_radius=20,
+                                                font=("Segoe UI", 15))
         self.entry_patient_search.pack(side="left", padx=5)
         self.entry_patient_search.bind("<KeyRelease>", lambda e: self._search_patients())
         
@@ -450,19 +456,19 @@ class ClinicApp(ctk.CTk):
         ctk.CTkButton(pagination_content, text="◀ Previous",
                      command=self._patients_prev_page,
                      fg_color=COLORS['accent_blue'], hover_color="#0052a3",
-                     height=35, width=100, corner_radius=15,
-                     font=("Segoe UI", 12, "bold")).pack(side="left", padx=10)
+                     height=40, width=120, corner_radius=15,
+                     font=("Segoe UI", 14, "bold")).pack(side="left", padx=10)
 
         self.lbl_patients_page = ctk.CTkLabel(pagination_content, text="Page 1 of 1",
-                                              font=("Segoe UI", 13, "bold"),
+                                              font=("Segoe UI", 15, "bold"),
                                               text_color=COLORS['text_primary'])
         self.lbl_patients_page.pack(side="left", padx=20)
 
         ctk.CTkButton(pagination_content, text="Next ▶",
                      command=self._patients_next_page,
                      fg_color=COLORS['accent_blue'], hover_color="#0052a3",
-                     height=35, width=100, corner_radius=15,
-                     font=("Segoe UI", 12, "bold")).pack(side="left", padx=10)
+                     height=40, width=120, corner_radius=15,
+                     font=("Segoe UI", 14, "bold")).pack(side="left", padx=10)
 
         return frame
     
@@ -480,13 +486,14 @@ class ClinicApp(ctk.CTk):
         stats_content.pack(expand=True, fill="both", padx=30)
         
         self.lbl_today_count = ctk.CTkLabel(stats_content, text="Total: 0 record(s)",
-                                           font=("Segoe UI", 18, "bold"),
+                                           font=("Segoe UI", 20, "bold"),
                                            text_color=COLORS['accent_blue'])
         self.lbl_today_count.pack(side="left")
-        
+
         ctk.CTkButton(stats_content, text="🔄 Refresh", command=self._refresh_today_visits,
                      fg_color=COLORS['accent_green'], hover_color="#1e7e34",
-                     height=40, corner_radius=20).pack(side="right")
+                     height=44, corner_radius=20,
+                     font=("Segoe UI", 14, "bold")).pack(side="right")
         
         # Table - transparent container, tree has its own rounded frame
         table_frame = ctk.CTkFrame(frame, fg_color="transparent")
@@ -519,19 +526,19 @@ class ClinicApp(ctk.CTk):
         ctk.CTkButton(pagination_content, text="◀ Previous",
                      command=self._visits_prev_page,
                      fg_color=COLORS['accent_blue'], hover_color="#0052a3",
-                     height=35, width=100, corner_radius=15,
-                     font=("Segoe UI", 12, "bold")).pack(side="left", padx=10)
+                     height=40, width=120, corner_radius=15,
+                     font=("Segoe UI", 14, "bold")).pack(side="left", padx=10)
 
         self.lbl_visits_page = ctk.CTkLabel(pagination_content, text="Page 1 of 1",
-                                            font=("Segoe UI", 13, "bold"),
+                                            font=("Segoe UI", 15, "bold"),
                                             text_color=COLORS['text_primary'])
         self.lbl_visits_page.pack(side="left", padx=20)
 
         ctk.CTkButton(pagination_content, text="Next ▶",
                      command=self._visits_next_page,
                      fg_color=COLORS['accent_blue'], hover_color="#0052a3",
-                     height=35, width=100, corner_radius=15,
-                     font=("Segoe UI", 12, "bold")).pack(side="left", padx=10)
+                     height=40, width=120, corner_radius=15,
+                     font=("Segoe UI", 14, "bold")).pack(side="left", padx=10)
 
         return frame
 
@@ -560,16 +567,16 @@ class ClinicApp(ctk.CTk):
                        fieldbackground="#ffffff",
                        borderwidth=0,
                        relief="flat",
-                       font=("Segoe UI", 11),
-                       rowheight=48)
+                       font=("Segoe UI", 13),
+                       rowheight=52)
 
         style.configure("Custom.Treeview.Heading",
                        background=COLORS['accent_blue'],
                        foreground="#ffffff",
                        borderwidth=0,
                        relief="flat",
-                       font=("Segoe UI", 11, "bold"),
-                       padding=(12, 10))
+                       font=("Segoe UI", 13, "bold"),
+                       padding=(14, 12))
 
         style.map("Custom.Treeview",
                  background=[("selected", COLORS['accent_blue'])],
@@ -929,13 +936,19 @@ class NewVisitDialog(ctk.CTkToplevel):
         self.geometry("700x800")
         self.resizable(False, False)
         self.configure(fg_color=COLORS['bg_dark'])
-        
-        # Center window
+
+        # Modal
         self.transient(parent)
         self.grab_set()
-        
+
         # Build UI
         self._build_ui()
+
+        # Center on screen
+        self.update_idletasks()
+        sx = self.winfo_screenwidth()
+        sy = self.winfo_screenheight()
+        self.geometry(f"700x800+{(sx - 700) // 2}+{(sy - 800) // 2}")
     
     def _build_ui(self):
         """Build visit dialog UI - O(1) widget construction"""
@@ -951,7 +964,7 @@ class NewVisitDialog(ctk.CTkToplevel):
                     font=("Segoe UI", 24, "bold"),
                     text_color="#ffffff").pack(anchor="w")
         ctk.CTkLabel(header_content, text="Select patient and record visit details", 
-                    font=("Segoe UI", 12),
+                    font=("Segoe UI", 14),
                     text_color="#ffffff").pack(anchor="w")
         
         # Main form
@@ -964,7 +977,7 @@ class NewVisitDialog(ctk.CTkToplevel):
         
         # SECTION 1: Patient Selection
         ctk.CTkLabel(form_content, text="1️⃣ SELECT PATIENT", 
-                    font=("Segoe UI", 14, "bold"),
+                    font=("Segoe UI", 16, "bold"),
                     text_color=COLORS['accent_blue']).pack(anchor="w", pady=(0, 10))
         
         patient_frame = ctk.CTkFrame(form_content, fg_color=COLORS['bg_dark'], corner_radius=20)
@@ -978,11 +991,11 @@ class NewVisitDialog(ctk.CTkToplevel):
         search_frame.pack(fill="x", pady=(0, 10))
         
         ctk.CTkLabel(search_frame, text="Search Patient:", 
-                    font=("Segoe UI", 12),
+                    font=("Segoe UI", 14),
                     text_color=COLORS['text_secondary']).pack(side="left", padx=(0, 10))
         
         self.entry_search = ctk.CTkEntry(search_frame, placeholder_text="Type patient name...",
-                                        height=40, font=("Segoe UI", 12))
+                                        height=44, font=("Segoe UI", 14))
         self.entry_search.pack(side="left", fill="x", expand=True, padx=(0, 10))
         self.entry_search.bind("<KeyRelease>", self._on_search_change)
         
@@ -999,7 +1012,7 @@ class NewVisitDialog(ctk.CTkToplevel):
         
         # Selected patient display
         self.lbl_selected = ctk.CTkLabel(patient_content, text="No patient selected", 
-                                        font=("Segoe UI", 12, "bold"),
+                                        font=("Segoe UI", 14, "bold"),
                                         text_color=COLORS['text_secondary'])
         self.lbl_selected.pack(anchor="w", pady=(0, 10))
         
@@ -1013,7 +1026,7 @@ class NewVisitDialog(ctk.CTkToplevel):
         
         # SECTION 2: Reference Number (editable for old records)
         ctk.CTkLabel(form_content, text="2️⃣ REFERENCE NUMBER",
-                    font=("Segoe UI", 14, "bold"),
+                    font=("Segoe UI", 16, "bold"),
                     text_color=COLORS['accent_orange']).pack(anchor="w", pady=(10, 10))
 
         ref_frame = ctk.CTkFrame(form_content, fg_color=COLORS['bg_dark'], corner_radius=15)
@@ -1038,13 +1051,13 @@ class NewVisitDialog(ctk.CTkToplevel):
         self.entry_ref.bind("<KeyRelease>", self._validate_reference)
 
         self.lbl_ref_validation = ctk.CTkLabel(ref_row, text=f"Next available: {next_ref}",
-                                               font=("Segoe UI", 11),
+                                               font=("Segoe UI", 13),
                                                text_color=COLORS['accent_green'])
         self.lbl_ref_validation.pack(side="left")
 
         # SECTION 3: Visit Details
         ctk.CTkLabel(form_content, text="3️⃣ VISIT DETAILS",
-                    font=("Segoe UI", 14, "bold"),
+                    font=("Segoe UI", 16, "bold"),
                     text_color=COLORS['accent_blue']).pack(anchor="w", pady=(10, 10))
 
         # Date and Time
@@ -1056,14 +1069,14 @@ class NewVisitDialog(ctk.CTkToplevel):
         date_col.pack(side="left", fill="x", expand=True, padx=(0, 10))
         
         ctk.CTkLabel(date_col, text="Visit Date",
-                    font=("Segoe UI", 12, "bold"),
+                    font=("Segoe UI", 14, "bold"),
                     text_color=COLORS['text_primary']).pack(anchor="w")
 
         date_input_frame = ctk.CTkFrame(date_col, fg_color="transparent")
         date_input_frame.pack(fill="x", pady=(5, 0))
 
         self.entry_date = ctk.CTkEntry(date_input_frame, placeholder_text="YYYY-MM-DD",
-                                      height=40, font=("Segoe UI", 12))
+                                      height=44, font=("Segoe UI", 14))
         self.entry_date.pack(side="left", fill="x", expand=True, padx=(0, 5))
         self.entry_date.insert(0, datetime.date.today().strftime("%Y-%m-%d"))
 
@@ -1077,7 +1090,7 @@ class NewVisitDialog(ctk.CTkToplevel):
         time_col.pack(side="left", fill="x", expand=True)
 
         ctk.CTkLabel(time_col, text="Visit Time",
-                    font=("Segoe UI", 12, "bold"),
+                    font=("Segoe UI", 14, "bold"),
                     text_color=COLORS['text_primary']).pack(anchor="w")
 
         time_input_frame = ctk.CTkFrame(time_col, fg_color="transparent")
@@ -1088,7 +1101,7 @@ class NewVisitDialog(ctk.CTkToplevel):
         self.hour_var = ctk.StringVar(value=datetime.datetime.now().strftime("%I"))
         self.hour_dropdown = ctk.CTkComboBox(time_input_frame, values=hours,
                                             variable=self.hour_var, width=70, height=40,
-                                            font=("Segoe UI", 12))
+                                            font=("Segoe UI", 14))
         self.hour_dropdown.pack(side="left", padx=(0, 5))
 
         ctk.CTkLabel(time_input_frame, text=":", font=("Segoe UI", 16, "bold"),
@@ -1100,14 +1113,14 @@ class NewVisitDialog(ctk.CTkToplevel):
         self.minute_var = ctk.StringVar(value=f"{current_min:02d}")
         self.minute_dropdown = ctk.CTkComboBox(time_input_frame, values=minutes,
                                               variable=self.minute_var, width=70, height=40,
-                                              font=("Segoe UI", 12))
+                                              font=("Segoe UI", 14))
         self.minute_dropdown.pack(side="left", padx=(5, 5))
 
         # AM/PM dropdown
         self.ampm_var = ctk.StringVar(value=datetime.datetime.now().strftime("%p"))
         self.ampm_dropdown = ctk.CTkComboBox(time_input_frame, values=["AM", "PM"],
                                             variable=self.ampm_var, width=70, height=40,
-                                            font=("Segoe UI", 12))
+                                            font=("Segoe UI", 14))
         self.ampm_dropdown.pack(side="left")
         
         # Vital Signs Row
@@ -1119,10 +1132,10 @@ class NewVisitDialog(ctk.CTkToplevel):
         weight_col.pack(side="left", fill="x", expand=True, padx=(0, 10))
         
         ctk.CTkLabel(weight_col, text="Weight (kg)", 
-                    font=("Segoe UI", 12, "bold"),
+                    font=("Segoe UI", 14, "bold"),
                     text_color=COLORS['text_primary']).pack(anchor="w")
         self.entry_weight = ctk.CTkEntry(weight_col, placeholder_text="e.g., 65.5",
-                                        height=40, font=("Segoe UI", 12))
+                                        height=44, font=("Segoe UI", 14))
         self.entry_weight.pack(fill="x", pady=(5, 0))
         
         # Height
@@ -1130,10 +1143,10 @@ class NewVisitDialog(ctk.CTkToplevel):
         height_col.pack(side="left", fill="x", expand=True)
         
         ctk.CTkLabel(height_col, text="Height (cm)", 
-                    font=("Segoe UI", 12, "bold"),
+                    font=("Segoe UI", 14, "bold"),
                     text_color=COLORS['text_primary']).pack(anchor="w")
         self.entry_height = ctk.CTkEntry(height_col, placeholder_text="e.g., 165",
-                                        height=40, font=("Segoe UI", 12))
+                                        height=44, font=("Segoe UI", 14))
         self.entry_height.pack(fill="x", pady=(5, 0))
         
         # BP and Temp Row
@@ -1145,10 +1158,10 @@ class NewVisitDialog(ctk.CTkToplevel):
         bp_col.pack(side="left", fill="x", expand=True, padx=(0, 10))
         
         ctk.CTkLabel(bp_col, text="Blood Pressure", 
-                    font=("Segoe UI", 12, "bold"),
+                    font=("Segoe UI", 14, "bold"),
                     text_color=COLORS['text_primary']).pack(anchor="w")
         self.entry_bp = ctk.CTkEntry(bp_col, placeholder_text="e.g., 120/80",
-                                    height=40, font=("Segoe UI", 12))
+                                    height=44, font=("Segoe UI", 14))
         self.entry_bp.pack(fill="x", pady=(5, 0))
         
         # Temperature
@@ -1156,10 +1169,10 @@ class NewVisitDialog(ctk.CTkToplevel):
         temp_col.pack(side="left", fill="x", expand=True)
         
         ctk.CTkLabel(temp_col, text="Temperature (°C)", 
-                    font=("Segoe UI", 12, "bold"),
+                    font=("Segoe UI", 14, "bold"),
                     text_color=COLORS['text_primary']).pack(anchor="w")
         self.entry_temp = ctk.CTkEntry(temp_col, placeholder_text="e.g., 37.2",
-                                      height=40, font=("Segoe UI", 12))
+                                      height=44, font=("Segoe UI", 14))
         self.entry_temp.pack(fill="x", pady=(5, 0))
         
         # Medical Notes
@@ -1168,7 +1181,7 @@ class NewVisitDialog(ctk.CTkToplevel):
                     text_color=COLORS['text_primary']).pack(anchor="w", pady=(5, 5))
         
         self.entry_notes = ctk.CTkTextbox(form_content, height=100, 
-                                         font=("Segoe UI", 12),
+                                         font=("Segoe UI", 14),
                                          fg_color="#ffffff",
                                          border_color=COLORS['border'],
                                          border_width=1)
@@ -1217,7 +1230,7 @@ class NewVisitDialog(ctk.CTkToplevel):
             btn = ctk.CTkButton(
                 self.patient_list_frame,
                 text=f"{full_name}  •  ID: {patient_id}",
-                font=("Segoe UI", 12),
+                font=("Segoe UI", 14),
                 fg_color="transparent",
                 hover_color=COLORS['status_info'],
                 text_color=COLORS['text_primary'],
@@ -1383,13 +1396,19 @@ class AddPatientDialog(ctk.CTkToplevel):
         self.geometry("600x700")
         self.resizable(False, False)
         self.configure(fg_color=COLORS['bg_dark'])
-        
-        # Center window
+
+        # Modal
         self.transient(parent)
         self.grab_set()
-        
+
         # Build UI
         self._build_ui()
+
+        # Center on screen
+        self.update_idletasks()
+        sx = self.winfo_screenwidth()
+        sy = self.winfo_screenheight()
+        self.geometry(f"600x700+{(sx - 600) // 2}+{(sy - 700) // 2}")
     
     def _build_ui(self):
         """Build dialog UI"""
@@ -1418,34 +1437,34 @@ class AddPatientDialog(ctk.CTkToplevel):
         
         # First Name
         ctk.CTkLabel(fields_frame, text="First Name",
-                    font=("Segoe UI", 12),
+                    font=("Segoe UI", 14),
                     text_color=COLORS['text_primary'],
                     anchor="w").pack(fill="x")
         self.entry_first_name = ctk.CTkEntry(fields_frame, height=40, corner_radius=20,
-                                            font=("Segoe UI", 12))
+                                            font=("Segoe UI", 14))
         self.entry_first_name.pack(fill="x", pady=(5, 15))
         
         # Middle Name
         ctk.CTkLabel(fields_frame, text="Middle Name (Optional)", 
-                    font=("Segoe UI", 12),
+                    font=("Segoe UI", 14),
                     text_color=COLORS['text_primary'],
                     anchor="w").pack(fill="x")
         self.entry_middle_name = ctk.CTkEntry(fields_frame, height=40, corner_radius=20,
-                                             font=("Segoe UI", 12))
+                                             font=("Segoe UI", 14))
         self.entry_middle_name.pack(fill="x", pady=(5, 15))
         
         # Last Name
         ctk.CTkLabel(fields_frame, text="Last Name",
-                    font=("Segoe UI", 12),
+                    font=("Segoe UI", 14),
                     text_color=COLORS['text_primary'],
                     anchor="w").pack(fill="x")
         self.entry_last_name = ctk.CTkEntry(fields_frame, height=40, corner_radius=20,
-                                           font=("Segoe UI", 12))
+                                           font=("Segoe UI", 14))
         self.entry_last_name.pack(fill="x", pady=(5, 15))
         
         # Date of Birth with Calendar Picker
         ctk.CTkLabel(fields_frame, text="Date of Birth", 
-                    font=("Segoe UI", 12),
+                    font=("Segoe UI", 14),
                     text_color=COLORS['text_primary'],
                     anchor="w").pack(fill="x")
         
@@ -1454,7 +1473,7 @@ class AddPatientDialog(ctk.CTkToplevel):
         
         self.entry_dob = ctk.CTkEntry(dob_frame, height=40, corner_radius=20,
                                      placeholder_text="YYYY-MM-DD",
-                                     font=("Segoe UI", 12))
+                                     font=("Segoe UI", 14))
         self.entry_dob.pack(side="left", fill="x", expand=True, padx=(0, 10))
         
         ctk.CTkButton(dob_frame, text="📅", width=50, height=40,
@@ -1470,30 +1489,30 @@ class AddPatientDialog(ctk.CTkToplevel):
         
         # Contact Number
         ctk.CTkLabel(fields_frame, text="Contact Number", 
-                    font=("Segoe UI", 12),
+                    font=("Segoe UI", 14),
                     text_color=COLORS['text_primary'],
                     anchor="w").pack(fill="x")
         self.entry_contact = ctk.CTkEntry(fields_frame, height=40, corner_radius=20,
                                          placeholder_text="09123456789",
-                                         font=("Segoe UI", 12))
+                                         font=("Segoe UI", 14))
         self.entry_contact.pack(fill="x", pady=(5, 15))
         
         # Address
         ctk.CTkLabel(fields_frame, text="Address", 
-                    font=("Segoe UI", 12),
+                    font=("Segoe UI", 14),
                     text_color=COLORS['text_primary'],
                     anchor="w").pack(fill="x")
         self.entry_address = ctk.CTkTextbox(fields_frame, height=80, corner_radius=20,
-                                           font=("Segoe UI", 12))
+                                           font=("Segoe UI", 14))
         self.entry_address.pack(fill="x", pady=(5, 15))
         
         # Notes
         ctk.CTkLabel(fields_frame, text="Additional Notes", 
-                    font=("Segoe UI", 12),
+                    font=("Segoe UI", 14),
                     text_color=COLORS['text_primary'],
                     anchor="w").pack(fill="x")
         self.entry_notes = ctk.CTkTextbox(fields_frame, height=80, corner_radius=20,
-                                         font=("Segoe UI", 12))
+                                         font=("Segoe UI", 14))
         self.entry_notes.pack(fill="x", pady=(5, 20))
         
         # Buttons
@@ -1579,22 +1598,28 @@ class PatientDetailsDialog(ctk.CTkToplevel):
         self.geometry("900x700")
         self.resizable(True, True)
         self.configure(fg_color=COLORS['bg_dark'])
-        
-        # Center on parent
+
+        # Modal
         self.transient(parent)
         self.grab_set()
-        
+
         # Load patient data - O(log n) indexed query
         self.patient_data = self.db.get_patient(patient_id)
         self.visit_data = self.db.get_patient_visits(patient_id)
         self.stats = self.db.get_patient_stats(patient_id)
-        
+
         if not self.patient_data:
             messagebox.showerror("Error", "Patient not found!", parent=self)
             self.destroy()
             return
-        
+
         self._build_ui()
+
+        # Center on screen
+        self.update_idletasks()
+        sx = self.winfo_screenwidth()
+        sy = self.winfo_screenheight()
+        self.geometry(f"900x700+{(sx - 900) // 2}+{(sy - 700) // 2}")
     
     def _build_ui(self):
         """Build patient details UI - minimal allocations"""
@@ -1617,7 +1642,7 @@ class PatientDetailsDialog(ctk.CTkToplevel):
                     text_color="#ffffff").pack(anchor="w")
         
         ctk.CTkLabel(header_content, text=f"Patient ID: #{self.patient_id}", 
-                    font=("Segoe UI", 12),
+                    font=("Segoe UI", 14),
                     text_color="#ffffff").pack(anchor="w")
         
         # Main content container
@@ -1642,7 +1667,7 @@ class PatientDetailsDialog(ctk.CTkToplevel):
             ctk.CTkLabel(card, text=icon, font=("Segoe UI", 18)).pack(pady=(15, 5))
             ctk.CTkLabel(card, text=str(value), font=("Segoe UI", 20, "bold"),
                         text_color=COLORS['accent_blue']).pack()
-            ctk.CTkLabel(card, text=label, font=("Segoe UI", 11),
+            ctk.CTkLabel(card, text=label, font=("Segoe UI", 13),
                         text_color=COLORS['text_secondary']).pack(pady=(0, 15))
         
         # Patient information card
@@ -1705,7 +1730,7 @@ class PatientDetailsDialog(ctk.CTkToplevel):
                         text_color=COLORS['text_secondary']).pack(anchor="w", 
                                                                   padx=15, pady=(10, 5))
             ctk.CTkLabel(notes_frame, text=notes, 
-                        font=("Segoe UI", 11),
+                        font=("Segoe UI", 13),
                         text_color=COLORS['text_primary'],
                         wraplength=800, justify="left").pack(anchor="w", 
                                                               padx=15, pady=(0, 10))
@@ -1738,12 +1763,12 @@ class PatientDetailsDialog(ctk.CTkToplevel):
                            background="#ffffff",
                            foreground=COLORS['text_primary'],
                            fieldbackground="#ffffff",
-                           font=("Segoe UI", 10),
+                           font=("Segoe UI", 12),
                            rowheight=35)
             style.configure("Details.Treeview.Heading",
                            background=COLORS['bg_dark'],
                            foreground=COLORS['text_primary'],
-                           font=("Segoe UI", 11, "bold"))
+                           font=("Segoe UI", 13, "bold"))
             
             # Tree
             columns = ["Ref#", "Date", "Time", "Weight", "Height", "BP", "Temp", "Notes"]
@@ -1810,12 +1835,12 @@ class PatientDetailsDialog(ctk.CTkToplevel):
         row.pack(fill="x", pady=5)
         
         ctk.CTkLabel(row, text=f"{label}:", 
-                    font=("Segoe UI", 11, "bold"),
+                    font=("Segoe UI", 13, "bold"),
                     text_color=COLORS['text_secondary'],
                     width=120, anchor="w").pack(side="left")
         
         ctk.CTkLabel(row, text=value, 
-                    font=("Segoe UI", 11),
+                    font=("Segoe UI", 13),
                     text_color=COLORS['text_primary'],
                     anchor="w").pack(side="left", fill="x", expand=True)
 
@@ -1837,12 +1862,18 @@ class CalendarDialog(ctk.CTkToplevel):
         self.geometry("400x450")
         self.resizable(False, False)
         self.configure(fg_color=COLORS['bg_dark'])
-        
-        # Center on parent
+
+        # Modal
         self.transient(parent)
         self.grab_set()
-        
+
         self._build_calendar()
+
+        # Center on screen
+        self.update_idletasks()
+        sx = self.winfo_screenwidth()
+        sy = self.winfo_screenheight()
+        self.geometry(f"400x450+{(sx - 400) // 2}+{(sy - 450) // 2}")
     
     def _build_calendar(self):
         """Build calendar UI - Modern horizontal layout with year arrows"""
@@ -1919,7 +1950,7 @@ class CalendarDialog(ctk.CTkToplevel):
         days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
         for col, day in enumerate(days):
             lbl = ctk.CTkLabel(self.calendar_frame, text=day,
-                             font=("Segoe UI", 11, "bold"),
+                             font=("Segoe UI", 13, "bold"),
                              text_color=COLORS['text_secondary'])
             lbl.grid(row=0, column=col, padx=2, pady=10, sticky="nsew")
         
@@ -2016,12 +2047,18 @@ class EncodeVisitDialog(ctk.CTkToplevel):
         self.resizable(False, False)
         self.configure(fg_color=COLORS['bg_dark'])
 
-        # Center window
+        # Modal
         self.transient(parent)
         self.grab_set()
 
         # Build UI
         self._build_ui()
+
+        # Center on screen
+        self.update_idletasks()
+        sx = self.winfo_screenwidth()
+        sy = self.winfo_screenheight()
+        self.geometry(f"750x900+{(sx - 750) // 2}+{(sy - 900) // 2}")
 
     def _build_ui(self):
         """Build encode dialog UI"""
@@ -2037,7 +2074,7 @@ class EncodeVisitDialog(ctk.CTkToplevel):
                     font=("Segoe UI", 24, "bold"),
                     text_color="#ffffff").pack(anchor="w")
         ctk.CTkLabel(header_content, text="Enter old physical records with custom date and reference number",
-                    font=("Segoe UI", 12),
+                    font=("Segoe UI", 14),
                     text_color="#ffffff").pack(anchor="w")
 
         # Main form
@@ -2050,7 +2087,7 @@ class EncodeVisitDialog(ctk.CTkToplevel):
 
         # SECTION 1: Patient Selection
         ctk.CTkLabel(form_content, text="1. SELECT PATIENT",
-                    font=("Segoe UI", 14, "bold"),
+                    font=("Segoe UI", 16, "bold"),
                     text_color=COLORS['accent_blue']).pack(anchor="w", pady=(0, 10))
 
         patient_frame = ctk.CTkFrame(form_content, fg_color=COLORS['bg_dark'], corner_radius=20)
@@ -2064,11 +2101,11 @@ class EncodeVisitDialog(ctk.CTkToplevel):
         search_frame.pack(fill="x", pady=(0, 10))
 
         ctk.CTkLabel(search_frame, text="Search Patient:",
-                    font=("Segoe UI", 12),
+                    font=("Segoe UI", 14),
                     text_color=COLORS['text_secondary']).pack(side="left", padx=(0, 10))
 
         self.entry_search = ctk.CTkEntry(search_frame, placeholder_text="Type patient name...",
-                                        height=40, font=("Segoe UI", 12))
+                                        height=44, font=("Segoe UI", 14))
         self.entry_search.pack(side="left", fill="x", expand=True, padx=(0, 10))
         self.entry_search.bind("<KeyRelease>", self._on_search_change)
 
@@ -2085,7 +2122,7 @@ class EncodeVisitDialog(ctk.CTkToplevel):
 
         # Selected patient display
         self.lbl_selected = ctk.CTkLabel(patient_content, text="No patient selected",
-                                        font=("Segoe UI", 12, "bold"),
+                                        font=("Segoe UI", 14, "bold"),
                                         text_color=COLORS['text_secondary'])
         self.lbl_selected.pack(anchor="w", pady=(0, 10))
 
@@ -2094,11 +2131,11 @@ class EncodeVisitDialog(ctk.CTkToplevel):
                      command=self._open_add_patient,
                      fg_color=COLORS['accent_purple'], hover_color="#5a32a3",
                      height=40, corner_radius=15,
-                     font=("Segoe UI", 12, "bold")).pack(fill="x")
+                     font=("Segoe UI", 14, "bold")).pack(fill="x")
 
         # SECTION 2: Reference Number and Date (CRITICAL FOR ENCODING)
         ctk.CTkLabel(form_content, text="2. REFERENCE NUMBER & DATE",
-                    font=("Segoe UI", 14, "bold"),
+                    font=("Segoe UI", 16, "bold"),
                     text_color=COLORS['accent_orange']).pack(anchor="w", pady=(10, 10))
 
         ref_date_frame = ctk.CTkFrame(form_content, fg_color=COLORS['bg_dark'], corner_radius=20)
@@ -2115,14 +2152,14 @@ class EncodeVisitDialog(ctk.CTkToplevel):
         ref_col.pack(side="left", fill="x", expand=True, padx=(0, 10))
 
         ctk.CTkLabel(ref_col, text="Reference Number",
-                    font=("Segoe UI", 12, "bold"),
+                    font=("Segoe UI", 14, "bold"),
                     text_color=COLORS['text_primary']).pack(anchor="w")
         ctk.CTkLabel(ref_col, text="(Auto-generated if left empty)",
-                    font=("Segoe UI", 10),
+                    font=("Segoe UI", 12),
                     text_color=COLORS['text_secondary']).pack(anchor="w")
 
         self.entry_ref_num = ctk.CTkEntry(ref_col, placeholder_text="Enter reference number",
-                                         height=40, font=("Segoe UI", 12))
+                                         height=44, font=("Segoe UI", 14))
         self.entry_ref_num.pack(fill="x", pady=(5, 0))
 
         # Auto-fill next reference number button
@@ -2131,11 +2168,11 @@ class EncodeVisitDialog(ctk.CTkToplevel):
                      command=lambda: self._set_ref_number(next_ref),
                      fg_color=COLORS['accent_blue'], hover_color="#0052a3",
                      height=35, corner_radius=15,
-                     font=("Segoe UI", 11)).pack(fill="x", pady=(5, 0))
+                     font=("Segoe UI", 13)).pack(fill="x", pady=(5, 0))
 
         # Reference number validation label
         self.lbl_ref_validation = ctk.CTkLabel(ref_col, text="",
-                                              font=("Segoe UI", 11),
+                                              font=("Segoe UI", 13),
                                               text_color=COLORS['accent_red'])
         self.lbl_ref_validation.pack(anchor="w", pady=(5, 0))
 
@@ -2150,14 +2187,14 @@ class EncodeVisitDialog(ctk.CTkToplevel):
         date_col.pack(side="left", fill="x", expand=True, padx=(0, 10))
 
         ctk.CTkLabel(date_col, text="Visit Date",
-                    font=("Segoe UI", 12, "bold"),
+                    font=("Segoe UI", 14, "bold"),
                     text_color=COLORS['text_primary']).pack(anchor="w")
 
         date_input_frame = ctk.CTkFrame(date_col, fg_color="transparent")
         date_input_frame.pack(fill="x", pady=(5, 0))
 
         self.entry_date = ctk.CTkEntry(date_input_frame, placeholder_text="YYYY-MM-DD",
-                                      height=40, font=("Segoe UI", 12))
+                                      height=44, font=("Segoe UI", 14))
         self.entry_date.pack(side="left", fill="x", expand=True, padx=(0, 10))
 
         ctk.CTkButton(date_input_frame, text="📅", width=50, height=40,
@@ -2170,7 +2207,7 @@ class EncodeVisitDialog(ctk.CTkToplevel):
         time_col.pack(side="left", fill="x", expand=True)
 
         ctk.CTkLabel(time_col, text="Visit Time",
-                    font=("Segoe UI", 12, "bold"),
+                    font=("Segoe UI", 14, "bold"),
                     text_color=COLORS['text_primary']).pack(anchor="w")
 
         time_input_frame = ctk.CTkFrame(time_col, fg_color="transparent")
@@ -2181,7 +2218,7 @@ class EncodeVisitDialog(ctk.CTkToplevel):
         self.hour_var = ctk.StringVar(value="12")
         self.hour_dropdown = ctk.CTkComboBox(time_input_frame, values=hours,
                                             variable=self.hour_var, width=65, height=40,
-                                            font=("Segoe UI", 12))
+                                            font=("Segoe UI", 14))
         self.hour_dropdown.pack(side="left", padx=(0, 3))
 
         ctk.CTkLabel(time_input_frame, text=":", font=("Segoe UI", 14, "bold"),
@@ -2192,19 +2229,19 @@ class EncodeVisitDialog(ctk.CTkToplevel):
         self.minute_var = ctk.StringVar(value="00")
         self.minute_dropdown = ctk.CTkComboBox(time_input_frame, values=minutes,
                                               variable=self.minute_var, width=65, height=40,
-                                              font=("Segoe UI", 12))
+                                              font=("Segoe UI", 14))
         self.minute_dropdown.pack(side="left", padx=(3, 3))
 
         # AM/PM dropdown
         self.ampm_var = ctk.StringVar(value="AM")
         self.ampm_dropdown = ctk.CTkComboBox(time_input_frame, values=["AM", "PM"],
                                             variable=self.ampm_var, width=65, height=40,
-                                            font=("Segoe UI", 12))
+                                            font=("Segoe UI", 14))
         self.ampm_dropdown.pack(side="left")
 
         # SECTION 3: Vital Signs
         ctk.CTkLabel(form_content, text="3. VITAL SIGNS (Optional)",
-                    font=("Segoe UI", 14, "bold"),
+                    font=("Segoe UI", 16, "bold"),
                     text_color=COLORS['accent_blue']).pack(anchor="w", pady=(10, 10))
 
         # Vital Signs Row 1
@@ -2216,10 +2253,10 @@ class EncodeVisitDialog(ctk.CTkToplevel):
         weight_col.pack(side="left", fill="x", expand=True, padx=(0, 10))
 
         ctk.CTkLabel(weight_col, text="Weight (kg)",
-                    font=("Segoe UI", 12, "bold"),
+                    font=("Segoe UI", 14, "bold"),
                     text_color=COLORS['text_primary']).pack(anchor="w")
         self.entry_weight = ctk.CTkEntry(weight_col, placeholder_text="e.g., 65.5",
-                                        height=40, font=("Segoe UI", 12))
+                                        height=44, font=("Segoe UI", 14))
         self.entry_weight.pack(fill="x", pady=(5, 0))
 
         # Height
@@ -2227,10 +2264,10 @@ class EncodeVisitDialog(ctk.CTkToplevel):
         height_col.pack(side="left", fill="x", expand=True)
 
         ctk.CTkLabel(height_col, text="Height (cm)",
-                    font=("Segoe UI", 12, "bold"),
+                    font=("Segoe UI", 14, "bold"),
                     text_color=COLORS['text_primary']).pack(anchor="w")
         self.entry_height = ctk.CTkEntry(height_col, placeholder_text="e.g., 165",
-                                        height=40, font=("Segoe UI", 12))
+                                        height=44, font=("Segoe UI", 14))
         self.entry_height.pack(fill="x", pady=(5, 0))
 
         # Vital Signs Row 2
@@ -2242,10 +2279,10 @@ class EncodeVisitDialog(ctk.CTkToplevel):
         bp_col.pack(side="left", fill="x", expand=True, padx=(0, 10))
 
         ctk.CTkLabel(bp_col, text="Blood Pressure",
-                    font=("Segoe UI", 12, "bold"),
+                    font=("Segoe UI", 14, "bold"),
                     text_color=COLORS['text_primary']).pack(anchor="w")
         self.entry_bp = ctk.CTkEntry(bp_col, placeholder_text="e.g., 120/80",
-                                    height=40, font=("Segoe UI", 12))
+                                    height=44, font=("Segoe UI", 14))
         self.entry_bp.pack(fill="x", pady=(5, 0))
 
         # Temperature
@@ -2253,10 +2290,10 @@ class EncodeVisitDialog(ctk.CTkToplevel):
         temp_col.pack(side="left", fill="x", expand=True)
 
         ctk.CTkLabel(temp_col, text="Temperature (C)",
-                    font=("Segoe UI", 12, "bold"),
+                    font=("Segoe UI", 14, "bold"),
                     text_color=COLORS['text_primary']).pack(anchor="w")
         self.entry_temp = ctk.CTkEntry(temp_col, placeholder_text="e.g., 37.2",
-                                      height=40, font=("Segoe UI", 12))
+                                      height=44, font=("Segoe UI", 14))
         self.entry_temp.pack(fill="x", pady=(5, 0))
 
         # Medical Notes
@@ -2265,7 +2302,7 @@ class EncodeVisitDialog(ctk.CTkToplevel):
                     text_color=COLORS['text_primary']).pack(anchor="w", pady=(5, 5))
 
         self.entry_notes = ctk.CTkTextbox(form_content, height=80,
-                                         font=("Segoe UI", 12),
+                                         font=("Segoe UI", 14),
                                          fg_color="#ffffff",
                                          border_color=COLORS['border'],
                                          border_width=1)
@@ -2346,7 +2383,7 @@ class EncodeVisitDialog(ctk.CTkToplevel):
             btn = ctk.CTkButton(
                 self.patient_list_frame,
                 text=f"{full_name}  •  ID: {patient_id}",
-                font=("Segoe UI", 12),
+                font=("Segoe UI", 14),
                 fg_color="transparent",
                 hover_color=COLORS['status_info'],
                 text_color=COLORS['text_primary'],
@@ -2509,12 +2546,18 @@ class EditVisitDialog(ctk.CTkToplevel):
         self.resizable(False, False)
         self.configure(fg_color=COLORS['bg_dark'])
 
-        # Center window
+        # Modal
         self.transient(parent)
         self.grab_set()
 
         # Build UI
         self._build_ui()
+
+        # Center on screen
+        self.update_idletasks()
+        sx = self.winfo_screenwidth()
+        sy = self.winfo_screenheight()
+        self.geometry(f"650x750+{(sx - 650) // 2}+{(sy - 750) // 2}")
 
     def _build_ui(self):
         """Build edit dialog UI"""
@@ -2536,7 +2579,7 @@ class EditVisitDialog(ctk.CTkToplevel):
         age_str = f" ({age} yrs)" if age else ""
 
         ctk.CTkLabel(header_content, text=f"Patient: {self.visit_data['full_name']}{age_str}",
-                    font=("Segoe UI", 12),
+                    font=("Segoe UI", 14),
                     text_color="#ffffff").pack(anchor="w")
 
         # Main form
@@ -2552,7 +2595,7 @@ class EditVisitDialog(ctk.CTkToplevel):
         ref_frame.pack(fill="x", pady=(0, 15))
 
         ctk.CTkLabel(ref_frame, text="Reference #",
-                    font=("Segoe UI", 12, "bold"),
+                    font=("Segoe UI", 14, "bold"),
                     text_color=COLORS['text_primary']).pack(anchor="w")
 
         self.lbl_ref = ctk.CTkLabel(ref_frame, text=str(self.visit_data['reference_number']),
@@ -2569,14 +2612,14 @@ class EditVisitDialog(ctk.CTkToplevel):
         date_col.pack(side="left", fill="x", expand=True, padx=(0, 10))
 
         ctk.CTkLabel(date_col, text="Visit Date",
-                    font=("Segoe UI", 12, "bold"),
+                    font=("Segoe UI", 14, "bold"),
                     text_color=COLORS['text_primary']).pack(anchor="w")
 
         date_input_frame = ctk.CTkFrame(date_col, fg_color="transparent")
         date_input_frame.pack(fill="x", pady=(5, 0))
 
         self.entry_date = ctk.CTkEntry(date_input_frame, placeholder_text="YYYY-MM-DD",
-                                      height=40, font=("Segoe UI", 12))
+                                      height=44, font=("Segoe UI", 14))
         self.entry_date.pack(side="left", fill="x", expand=True, padx=(0, 5))
         self.entry_date.insert(0, self.visit_data.get('visit_date') or "")
 
@@ -2590,7 +2633,7 @@ class EditVisitDialog(ctk.CTkToplevel):
         time_col.pack(side="left", fill="x", expand=True)
 
         ctk.CTkLabel(time_col, text="Visit Time",
-                    font=("Segoe UI", 12, "bold"),
+                    font=("Segoe UI", 14, "bold"),
                     text_color=COLORS['text_primary']).pack(anchor="w")
 
         time_input_frame = ctk.CTkFrame(time_col, fg_color="transparent")
@@ -2615,7 +2658,7 @@ class EditVisitDialog(ctk.CTkToplevel):
         self.hour_var = ctk.StringVar(value=hour_12)
         self.hour_dropdown = ctk.CTkComboBox(time_input_frame, values=hours,
                                             variable=self.hour_var, width=65, height=40,
-                                            font=("Segoe UI", 12))
+                                            font=("Segoe UI", 14))
         self.hour_dropdown.pack(side="left", padx=(0, 3))
 
         ctk.CTkLabel(time_input_frame, text=":", font=("Segoe UI", 14, "bold"),
@@ -2626,19 +2669,19 @@ class EditVisitDialog(ctk.CTkToplevel):
         self.minute_var = ctk.StringVar(value=f"{min_rounded:02d}")
         self.minute_dropdown = ctk.CTkComboBox(time_input_frame, values=minutes,
                                               variable=self.minute_var, width=65, height=40,
-                                              font=("Segoe UI", 12))
+                                              font=("Segoe UI", 14))
         self.minute_dropdown.pack(side="left", padx=(3, 3))
 
         # AM/PM dropdown
         self.ampm_var = ctk.StringVar(value=ampm)
         self.ampm_dropdown = ctk.CTkComboBox(time_input_frame, values=["AM", "PM"],
                                             variable=self.ampm_var, width=65, height=40,
-                                            font=("Segoe UI", 12))
+                                            font=("Segoe UI", 14))
         self.ampm_dropdown.pack(side="left")
 
         # Vital Signs
         ctk.CTkLabel(form_content, text="Vital Signs",
-                    font=("Segoe UI", 14, "bold"),
+                    font=("Segoe UI", 16, "bold"),
                     text_color=COLORS['accent_blue']).pack(anchor="w", pady=(10, 10))
 
         # Vitals Row 1
@@ -2650,10 +2693,10 @@ class EditVisitDialog(ctk.CTkToplevel):
         weight_col.pack(side="left", fill="x", expand=True, padx=(0, 10))
 
         ctk.CTkLabel(weight_col, text="Weight (kg)",
-                    font=("Segoe UI", 12),
+                    font=("Segoe UI", 14),
                     text_color=COLORS['text_primary']).pack(anchor="w")
         self.entry_weight = ctk.CTkEntry(weight_col, placeholder_text="e.g., 65.5",
-                                        height=40, font=("Segoe UI", 12))
+                                        height=44, font=("Segoe UI", 14))
         self.entry_weight.pack(fill="x", pady=(5, 0))
         if self.visit_data.get('weight_kg'):
             self.entry_weight.insert(0, str(self.visit_data['weight_kg']))
@@ -2663,10 +2706,10 @@ class EditVisitDialog(ctk.CTkToplevel):
         height_col.pack(side="left", fill="x", expand=True)
 
         ctk.CTkLabel(height_col, text="Height (cm)",
-                    font=("Segoe UI", 12),
+                    font=("Segoe UI", 14),
                     text_color=COLORS['text_primary']).pack(anchor="w")
         self.entry_height = ctk.CTkEntry(height_col, placeholder_text="e.g., 165",
-                                        height=40, font=("Segoe UI", 12))
+                                        height=44, font=("Segoe UI", 14))
         self.entry_height.pack(fill="x", pady=(5, 0))
         if self.visit_data.get('height_cm'):
             self.entry_height.insert(0, str(self.visit_data['height_cm']))
@@ -2680,10 +2723,10 @@ class EditVisitDialog(ctk.CTkToplevel):
         bp_col.pack(side="left", fill="x", expand=True, padx=(0, 10))
 
         ctk.CTkLabel(bp_col, text="Blood Pressure",
-                    font=("Segoe UI", 12),
+                    font=("Segoe UI", 14),
                     text_color=COLORS['text_primary']).pack(anchor="w")
         self.entry_bp = ctk.CTkEntry(bp_col, placeholder_text="e.g., 120/80",
-                                    height=40, font=("Segoe UI", 12))
+                                    height=44, font=("Segoe UI", 14))
         self.entry_bp.pack(fill="x", pady=(5, 0))
         if self.visit_data.get('blood_pressure'):
             self.entry_bp.insert(0, self.visit_data['blood_pressure'])
@@ -2693,10 +2736,10 @@ class EditVisitDialog(ctk.CTkToplevel):
         temp_col.pack(side="left", fill="x", expand=True)
 
         ctk.CTkLabel(temp_col, text="Temperature (C)",
-                    font=("Segoe UI", 12),
+                    font=("Segoe UI", 14),
                     text_color=COLORS['text_primary']).pack(anchor="w")
         self.entry_temp = ctk.CTkEntry(temp_col, placeholder_text="e.g., 37.2",
-                                      height=40, font=("Segoe UI", 12))
+                                      height=44, font=("Segoe UI", 14))
         self.entry_temp.pack(fill="x", pady=(5, 0))
         if self.visit_data.get('temperature_celsius'):
             self.entry_temp.insert(0, str(self.visit_data['temperature_celsius']))
@@ -2707,7 +2750,7 @@ class EditVisitDialog(ctk.CTkToplevel):
                     text_color=COLORS['text_primary']).pack(anchor="w", pady=(10, 5))
 
         self.entry_notes = ctk.CTkTextbox(form_content, height=100,
-                                         font=("Segoe UI", 12),
+                                         font=("Segoe UI", 14),
                                          fg_color="#ffffff",
                                          border_color=COLORS['border'],
                                          border_width=1)
@@ -2803,10 +2846,13 @@ class FirstRunSetup(ctk.CTk):
         self.resizable(False, False)
         self.configure(fg_color=COLORS['bg_dark'])
 
-        # Center on screen
-        self.eval('tk::PlaceWindow . center')
-
         self._build_ui()
+
+        # Center on screen after UI is built
+        self.update_idletasks()
+        sx = self.winfo_screenwidth()
+        sy = self.winfo_screenheight()
+        self.geometry(f"500x850+{(sx - 500) // 2}+{(sy - 850) // 2}")
 
     def _build_ui(self):
         # Header
@@ -2821,7 +2867,7 @@ class FirstRunSetup(ctk.CTk):
                     font=("Segoe UI", 22, "bold"),
                     text_color="#ffffff").pack(anchor="w")
         ctk.CTkLabel(header_content, text="Create your admin account to get started",
-                    font=("Segoe UI", 12),
+                    font=("Segoe UI", 14),
                     text_color="#ffffff").pack(anchor="w")
 
         # Form card
@@ -2838,34 +2884,34 @@ class FirstRunSetup(ctk.CTk):
 
         # Username
         ctk.CTkLabel(form, text="Username",
-                    font=("Segoe UI", 13, "bold"),
+                    font=("Segoe UI", 15, "bold"),
                     text_color=COLORS['text_primary']).pack(anchor="w")
-        self.entry_username = ctk.CTkEntry(form, height=45, corner_radius=15,
-                                          font=("Segoe UI", 13),
+        self.entry_username = ctk.CTkEntry(form, height=50, corner_radius=15,
+                                          font=("Segoe UI", 15),
                                           placeholder_text="Enter admin username")
         self.entry_username.pack(fill="x", pady=(5, 15))
 
         # Password
         ctk.CTkLabel(form, text="Password",
-                    font=("Segoe UI", 13, "bold"),
+                    font=("Segoe UI", 15, "bold"),
                     text_color=COLORS['text_primary']).pack(anchor="w")
-        self.entry_password = ctk.CTkEntry(form, height=45, corner_radius=15,
-                                          font=("Segoe UI", 13), show="*",
+        self.entry_password = ctk.CTkEntry(form, height=50, corner_radius=15,
+                                          font=("Segoe UI", 15), show="*",
                                           placeholder_text="Enter password")
         self.entry_password.pack(fill="x", pady=(5, 15))
 
         # Confirm Password
         ctk.CTkLabel(form, text="Confirm Password",
-                    font=("Segoe UI", 13, "bold"),
+                    font=("Segoe UI", 15, "bold"),
                     text_color=COLORS['text_primary']).pack(anchor="w")
-        self.entry_confirm = ctk.CTkEntry(form, height=45, corner_radius=15,
-                                         font=("Segoe UI", 13), show="*",
+        self.entry_confirm = ctk.CTkEntry(form, height=50, corner_radius=15,
+                                         font=("Segoe UI", 15), show="*",
                                          placeholder_text="Re-enter password")
         self.entry_confirm.pack(fill="x", pady=(5, 25))
 
         # Status label
         self.lbl_status = ctk.CTkLabel(form, text="",
-                                      font=("Segoe UI", 12),
+                                      font=("Segoe UI", 14),
                                       text_color=COLORS['accent_red'])
         self.lbl_status.pack(pady=(0, 10))
 
@@ -2877,14 +2923,14 @@ class FirstRunSetup(ctk.CTk):
                      font=("Segoe UI", 14, "bold")).pack(fill="x")
 
         # Branding
-        ctk.CTkLabel(form, text="Made by Rainberry Corp.",
-                    font=("Segoe UI", 10, "bold"),
+        ctk.CTkLabel(form, text="\u00a9 2026 Rainberry Corp. All rights reserved.",
+                    font=("Segoe UI", 12, "bold"),
                     text_color=COLORS['text_muted']).pack(pady=(15, 0))
-        ctk.CTkLabel(form, text="Designed by Jesbert V. Jalandoni",
-                    font=("Segoe UI", 9),
+        ctk.CTkLabel(form, text="Created and Designed by Jesbert V. Jalandoni",
+                    font=("Segoe UI", 11),
                     text_color=COLORS['text_muted']).pack()
         site_label = ctk.CTkLabel(form, text="jalandoni.jesbert.cloud",
-                    font=("Segoe UI", 9, "underline"),
+                    font=("Segoe UI", 11, "underline"),
                     text_color=COLORS['accent_blue'], cursor="hand2")
         site_label.pack()
         site_label.bind("<Button-1>", lambda e: __import__('webbrowser').open("https://jalandoni.jesbert.cloud/"))
@@ -2936,10 +2982,13 @@ class LoginWindow(ctk.CTk):
         self.resizable(False, False)
         self.configure(fg_color=COLORS['bg_dark'])
 
-        # Center on screen
-        self.eval('tk::PlaceWindow . center')
-
         self._build_ui()
+
+        # Center on screen after UI is built
+        self.update_idletasks()
+        sx = self.winfo_screenwidth()
+        sy = self.winfo_screenheight()
+        self.geometry(f"500x720+{(sx - 500) // 2}+{(sy - 720) // 2}")
 
     def _build_ui(self):
         # Logo section
@@ -2951,7 +3000,7 @@ class LoginWindow(ctk.CTk):
                     font=("Segoe UI", 32, "bold"),
                     text_color=COLORS['text_primary']).pack()
         ctk.CTkLabel(logo_frame, text="Patient Management System",
-                    font=("Segoe UI", 13),
+                    font=("Segoe UI", 15),
                     text_color=COLORS['text_secondary']).pack(pady=(5, 0))
 
         # Login card
@@ -2968,25 +3017,25 @@ class LoginWindow(ctk.CTk):
 
         # Username
         ctk.CTkLabel(form, text="Username",
-                    font=("Segoe UI", 13, "bold"),
+                    font=("Segoe UI", 15, "bold"),
                     text_color=COLORS['text_primary']).pack(anchor="w")
-        self.entry_username = ctk.CTkEntry(form, height=45, corner_radius=15,
-                                          font=("Segoe UI", 13),
+        self.entry_username = ctk.CTkEntry(form, height=50, corner_radius=15,
+                                          font=("Segoe UI", 15),
                                           placeholder_text="Enter username")
         self.entry_username.pack(fill="x", pady=(5, 15))
 
         # Password
         ctk.CTkLabel(form, text="Password",
-                    font=("Segoe UI", 13, "bold"),
+                    font=("Segoe UI", 15, "bold"),
                     text_color=COLORS['text_primary']).pack(anchor="w")
-        self.entry_password = ctk.CTkEntry(form, height=45, corner_radius=15,
-                                          font=("Segoe UI", 13), show="*",
+        self.entry_password = ctk.CTkEntry(form, height=50, corner_radius=15,
+                                          font=("Segoe UI", 15), show="*",
                                           placeholder_text="Enter password")
         self.entry_password.pack(fill="x", pady=(5, 20))
 
         # Status label
         self.lbl_status = ctk.CTkLabel(form, text="",
-                                      font=("Segoe UI", 12),
+                                      font=("Segoe UI", 14),
                                       text_color=COLORS['accent_red'])
         self.lbl_status.pack(pady=(0, 10))
 
@@ -2998,14 +3047,14 @@ class LoginWindow(ctk.CTk):
                      font=("Segoe UI", 14, "bold")).pack(fill="x")
 
         # Branding
-        ctk.CTkLabel(form, text="Made by Rainberry Corp.",
-                    font=("Segoe UI", 10, "bold"),
+        ctk.CTkLabel(form, text="\u00a9 2026 Rainberry Corp. All rights reserved.",
+                    font=("Segoe UI", 12, "bold"),
                     text_color=COLORS['text_muted']).pack(pady=(15, 0))
-        ctk.CTkLabel(form, text="Designed by Jesbert V. Jalandoni",
-                    font=("Segoe UI", 9),
+        ctk.CTkLabel(form, text="Created and Designed by Jesbert V. Jalandoni",
+                    font=("Segoe UI", 11),
                     text_color=COLORS['text_muted']).pack()
         site_label = ctk.CTkLabel(form, text="jalandoni.jesbert.cloud",
-                    font=("Segoe UI", 9, "underline"),
+                    font=("Segoe UI", 11, "underline"),
                     text_color=COLORS['accent_blue'], cursor="hand2")
         site_label.pack()
         site_label.bind("<Button-1>", lambda e: __import__('webbrowser').open("https://jalandoni.jesbert.cloud/"))
@@ -3050,6 +3099,12 @@ class AdminSettingsDialog(ctk.CTkToplevel):
 
         self._build_ui()
 
+        # Center on screen
+        self.update_idletasks()
+        sx = self.winfo_screenwidth()
+        sy = self.winfo_screenheight()
+        self.geometry(f"500x600+{(sx - 500) // 2}+{(sy - 600) // 2}")
+
     def _build_ui(self):
         # Header
         header = ctk.CTkFrame(self, fg_color=COLORS['accent_purple'], corner_radius=18, height=70)
@@ -3076,24 +3131,24 @@ class AdminSettingsDialog(ctk.CTkToplevel):
                     text_color=COLORS['text_primary']).pack(anchor="w", pady=(0, 10))
 
         ctk.CTkLabel(form, text="Current Username",
-                    font=("Segoe UI", 12),
+                    font=("Segoe UI", 14),
                     text_color=COLORS['text_secondary']).pack(anchor="w")
         self.entry_current_user = ctk.CTkEntry(form, height=40, corner_radius=15,
-                                               font=("Segoe UI", 12))
+                                               font=("Segoe UI", 14))
         self.entry_current_user.pack(fill="x", pady=(5, 10))
         self.entry_current_user.insert(0, current_username)
         self.entry_current_user.configure(state="disabled")
 
         ctk.CTkLabel(form, text="New Username",
-                    font=("Segoe UI", 12),
+                    font=("Segoe UI", 14),
                     text_color=COLORS['text_secondary']).pack(anchor="w")
         self.entry_new_user = ctk.CTkEntry(form, height=40, corner_radius=15,
-                                           font=("Segoe UI", 12),
+                                           font=("Segoe UI", 14),
                                            placeholder_text="Enter new username")
         self.entry_new_user.pack(fill="x", pady=(5, 10))
 
         self.lbl_user_status = ctk.CTkLabel(form, text="",
-                                           font=("Segoe UI", 11),
+                                           font=("Segoe UI", 13),
                                            text_color=COLORS['accent_red'])
         self.lbl_user_status.pack(anchor="w")
 
@@ -3112,31 +3167,31 @@ class AdminSettingsDialog(ctk.CTkToplevel):
                     text_color=COLORS['text_primary']).pack(anchor="w", pady=(0, 10))
 
         ctk.CTkLabel(form, text="Current Password",
-                    font=("Segoe UI", 12),
+                    font=("Segoe UI", 14),
                     text_color=COLORS['text_secondary']).pack(anchor="w")
         self.entry_current_pass = ctk.CTkEntry(form, height=40, corner_radius=15,
-                                               font=("Segoe UI", 12), show="*",
+                                               font=("Segoe UI", 14), show="*",
                                                placeholder_text="Enter current password")
         self.entry_current_pass.pack(fill="x", pady=(5, 10))
 
         ctk.CTkLabel(form, text="New Password",
-                    font=("Segoe UI", 12),
+                    font=("Segoe UI", 14),
                     text_color=COLORS['text_secondary']).pack(anchor="w")
         self.entry_new_pass = ctk.CTkEntry(form, height=40, corner_radius=15,
-                                           font=("Segoe UI", 12), show="*",
+                                           font=("Segoe UI", 14), show="*",
                                            placeholder_text="Enter new password")
         self.entry_new_pass.pack(fill="x", pady=(5, 10))
 
         ctk.CTkLabel(form, text="Confirm New Password",
-                    font=("Segoe UI", 12),
+                    font=("Segoe UI", 14),
                     text_color=COLORS['text_secondary']).pack(anchor="w")
         self.entry_confirm_pass = ctk.CTkEntry(form, height=40, corner_radius=15,
-                                               font=("Segoe UI", 12), show="*",
+                                               font=("Segoe UI", 14), show="*",
                                                placeholder_text="Re-enter new password")
         self.entry_confirm_pass.pack(fill="x", pady=(5, 10))
 
         self.lbl_pass_status = ctk.CTkLabel(form, text="",
-                                           font=("Segoe UI", 11),
+                                           font=("Segoe UI", 13),
                                            text_color=COLORS['accent_red'])
         self.lbl_pass_status.pack(anchor="w")
 

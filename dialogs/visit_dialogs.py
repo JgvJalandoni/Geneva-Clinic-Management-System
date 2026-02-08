@@ -51,12 +51,12 @@ class QuickVisitSearchDialog(BaseDialog):
         search_frame.pack(fill="x", pady=(0, 15))
         
         ctk.CTkLabel(search_frame, text="Search Patient:",
-                    font=("Segoe UI", 12, "bold"),
+                    font=("Segoe UI", 14, "bold"),
                     text_color=COLORS['text_secondary']).pack(anchor="w", padx=15, pady=(15, 5))
         
         self.entry_search = ctk.CTkEntry(search_frame,
                                         placeholder_text="Type patient name...",
-                                        height=40,
+                                        height=44,
                                         font=("Segoe UI", 13),
                                         fg_color=COLORS['bg_dark'],
                                         border_width=1,
@@ -67,7 +67,7 @@ class QuickVisitSearchDialog(BaseDialog):
         
         # Results Label
         self.lbl_results = ctk.CTkLabel(content, text="Recent Patients:",
-                                       font=("Segoe UI", 12, "bold"),
+                                       font=("Segoe UI", 14, "bold"),
                                        text_color=COLORS['text_secondary'])
         self.lbl_results.pack(anchor="w", pady=(0, 10))
         
@@ -109,7 +109,7 @@ class QuickVisitSearchDialog(BaseDialog):
         if not patients:
             ctk.CTkLabel(self.results_container,
                         text="No patients found" if query else "No patients in database",
-                        font=("Segoe UI", 12),
+                        font=("Segoe UI", 14),
                         text_color=COLORS['text_secondary']).pack(pady=20)
             return
         
@@ -151,7 +151,7 @@ class QuickVisitSearchDialog(BaseDialog):
         
         info_label = ctk.CTkLabel(content_frame,
                                  text=" | ".join(info_parts),
-                                 font=("Segoe UI", 11),
+                                 font=("Segoe UI", 13),
                                  text_color=COLORS['text_secondary'],
                                  anchor="w")
         info_label.pack(anchor="w", pady=(3, 0))
@@ -230,9 +230,9 @@ class QuickVisitFormDialog(BaseDialog):
         date_frame.grid(row=0, column=0, sticky="ew", padx=(0, 5))
         
         ctk.CTkLabel(date_frame, text="📅 Visit Date",
-                    font=("Segoe UI", 11, "bold"),
+                    font=("Segoe UI", 14, "bold"),
                     text_color=COLORS['text_secondary']).pack(anchor="w")
-        self.entry_date = ctk.CTkEntry(date_frame, height=38,
+        self.entry_date = ctk.CTkEntry(date_frame, height=44,
                                       fg_color=COLORS['bg_dark'],
                                       border_width=1, border_color=COLORS['border'])
         self.entry_date.insert(0, get_current_date())
@@ -243,9 +243,9 @@ class QuickVisitFormDialog(BaseDialog):
         time_frame.grid(row=0, column=1, sticky="ew", padx=(5, 0))
         
         ctk.CTkLabel(time_frame, text="🕐 Visit Time",
-                    font=("Segoe UI", 11, "bold"),
+                    font=("Segoe UI", 14, "bold"),
                     text_color=COLORS['text_secondary']).pack(anchor="w")
-        self.entry_time = ctk.CTkEntry(time_frame, height=38,
+        self.entry_time = ctk.CTkEntry(time_frame, height=44,
                                       fg_color=COLORS['bg_dark'],
                                       border_width=1, border_color=COLORS['border'],
                                       placeholder_text="HH:MM AM/PM")
@@ -254,7 +254,7 @@ class QuickVisitFormDialog(BaseDialog):
         
         # Vitals Section
         ctk.CTkLabel(form, text="Vital Signs (Optional)",
-                    font=("Segoe UI", 13, "bold"),
+                    font=("Segoe UI", 14, "bold"),
                     text_color=COLORS['text_primary']).pack(anchor="w", pady=(0, 10))
         
         vitals_card = ctk.CTkFrame(form, fg_color=COLORS['bg_card'], corner_radius=10)
@@ -271,13 +271,13 @@ class QuickVisitFormDialog(BaseDialog):
         
         # Medical Notes
         ctk.CTkLabel(form, text="📝 Medical Notes / Diagnosis",
-                    font=("Segoe UI", 13, "bold"),
+                    font=("Segoe UI", 14, "bold"),
                     text_color=COLORS['text_primary']).pack(anchor="w", pady=(0, 10))
         
         self.txt_notes = ctk.CTkTextbox(form, height=120,
                                        fg_color=COLORS['bg_card'],
                                        border_width=1, border_color=COLORS['border'],
-                                       font=("Segoe UI", 12))
+                                       font=("Segoe UI", 14))
         self.txt_notes.pack(fill="x", pady=(0, 15))
         self.txt_notes.focus_set()
         
@@ -296,9 +296,9 @@ class QuickVisitFormDialog(BaseDialog):
         frame.grid(row=row, column=col, sticky="ew", padx=5, pady=5)
         
         ctk.CTkLabel(frame, text=label,
-                    font=("Segoe UI", 11, "bold"),
+                    font=("Segoe UI", 14, "bold"),
                     text_color=COLORS['text_secondary']).pack(anchor="w")
-        entry = ctk.CTkEntry(frame, height=35, placeholder_text=placeholder,
+        entry = ctk.CTkEntry(frame, height=44, placeholder_text=placeholder,
                            fg_color=COLORS['bg_dark'],
                            border_width=1, border_color=COLORS['border'])
         entry.pack(fill="x", pady=(3, 0))
@@ -391,7 +391,7 @@ Date: {visit_date}
 Time: {format_time_12hr(visit_time)}"""
         
         ctk.CTkLabel(info_card, text=info_text,
-                    font=("Segoe UI", 12),
+                    font=("Segoe UI", 14),
                     text_color=COLORS['text_primary'],
                     justify="left").pack(padx=20, pady=15)
         

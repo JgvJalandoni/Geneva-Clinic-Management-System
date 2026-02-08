@@ -1,6 +1,6 @@
 """
 Configuration file for Geneva Clinic Management System
-Made by Rainberry Corp. | Designed by Jesbert V. Jalandoni
+© 2026 Rainberry Corp. All rights reserved. Created and Designed by Jesbert V. Jalandoni
 https://jalandoni.jesbert.cloud/
 """
 
