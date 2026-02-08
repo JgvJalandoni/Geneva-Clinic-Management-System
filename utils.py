@@ -27,7 +27,7 @@ def format_time_12hr(time_24hr: str) -> str:
     try:
         time_obj = datetime.datetime.strptime(time_24hr, DATETIME_FORMATS['time_24hr'])
         return time_obj.strftime(DATETIME_FORMATS['time_12hr'])
-    except:
+    except (ValueError, TypeError):
         return time_24hr
 
 
@@ -47,12 +47,12 @@ def format_timestamp(timestamp_str: str) -> str:
         # Parse SQLite timestamp format
         dt = datetime.datetime.strptime(timestamp_str, DATETIME_FORMATS['timestamp'])
         return dt.strftime(DATETIME_FORMATS['timestamp_display'])
-    except:
+    except (ValueError, TypeError):
         # Try alternate format
         try:
             dt = datetime.datetime.fromisoformat(timestamp_str)
             return dt.strftime(DATETIME_FORMATS['timestamp_display'])
-        except:
+        except (ValueError, TypeError):
             return timestamp_str
 
 
@@ -80,15 +80,15 @@ def parse_time_input(time_str: str) -> Optional[str]:
         try:
             dt = datetime.datetime.strptime(time_str, fmt)
             return dt.strftime(DATETIME_FORMATS['time_24hr'])
-        except:
+        except ValueError:
             continue
-    
+
     # Try 24-hour format (e.g., "14:30")
     for fmt in ["%H:%M", "%H:%M:%S"]:
         try:
             dt = datetime.datetime.strptime(time_str, fmt)
             return dt.strftime(DATETIME_FORMATS['time_24hr'])
-        except:
+        except ValueError:
             continue
     
     return None

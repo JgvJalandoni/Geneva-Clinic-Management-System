@@ -4,7 +4,16 @@ Configuration file for Geneva Clinic Management System
 https://jalandoni.jesbert.cloud/
 """
 
+import sys
 import customtkinter as ctk
+
+# Cross-platform font family
+if sys.platform.startswith('linux'):
+    FONT_FAMILY = "DejaVu Sans"
+elif sys.platform == 'darwin':
+    FONT_FAMILY = "Helvetica Neue"
+else:
+    FONT_FAMILY = "Segoe UI"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # APPLICATION SETTINGS
@@ -62,17 +71,17 @@ COLORS = {
 
 # Font Configurations
 FONTS = {
-    'header_large': ("Segoe UI", 40),
-    'header': ("Segoe UI", 24, "bold"),
-    'subheader': ("Segoe UI", 18, "bold"),
-    'title': ("Segoe UI", 16, "bold"),
-    'body': ("Segoe UI", 12),
-    'body_bold': ("Segoe UI", 12, "bold"),
-    'small': ("Segoe UI", 11),
-    'small_bold': ("Segoe UI", 11, "bold"),
-    'tiny': ("Segoe UI", 10),
-    'button': ("Segoe UI", 13, "bold"),
-    'button_large': ("Segoe UI", 14, "bold"),
+    'header_large': (FONT_FAMILY, 40),
+    'header': (FONT_FAMILY, 24, "bold"),
+    'subheader': (FONT_FAMILY, 18, "bold"),
+    'title': (FONT_FAMILY, 16, "bold"),
+    'body': (FONT_FAMILY, 12),
+    'body_bold': (FONT_FAMILY, 12, "bold"),
+    'small': (FONT_FAMILY, 11),
+    'small_bold': (FONT_FAMILY, 11, "bold"),
+    'tiny': (FONT_FAMILY, 10),
+    'button': (FONT_FAMILY, 13, "bold"),
+    'button_large': (FONT_FAMILY, 14, "bold"),
     'mono': ("Consolas", 13),
 }
 

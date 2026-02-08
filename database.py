@@ -23,6 +23,7 @@ class ClinicDatabase:
         """Create and return a database connection with Row factory"""
         conn = sqlite3.connect(self.db_name)
         conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA foreign_keys = ON")
         return conn
     
     def init_db(self):
@@ -262,6 +263,26 @@ class ClinicDatabase:
         except sqlite3.Error:
             return [], 0
     
+    def get_patient_count(self) -> int:
+        """Get total patient count efficiently using COUNT query"""
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT COUNT(*) FROM patients")
+                return cursor.fetchone()[0]
+        except sqlite3.Error:
+            return 0
+
+    def get_visit_count(self) -> int:
+        """Get total visit count efficiently using COUNT query"""
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT COUNT(*) FROM visit_logs")
+                return cursor.fetchone()[0]
+        except sqlite3.Error:
+            return 0
+
     # ═══════════════════════════════════════════════════════════════════════════
     # VISIT OPERATIONS
     # ═══════════════════════════════════════════════════════════════════════════
