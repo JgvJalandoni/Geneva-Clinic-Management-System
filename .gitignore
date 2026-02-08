@@ -3,5 +3,4 @@ __pycache__/
 *.db
 build/
 dist/
-*.spec
 .claude/
