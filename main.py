@@ -1637,7 +1637,7 @@ class PatientDetailsDialog(ctk.CTkToplevel):
     def _build_ui(self):
         """Build patient details UI - minimal allocations"""
         # Header with patient name
-        header = ctk.CTkFrame(self, fg_color=COLORS['accent_blue'], corner_radius=15, height=100)
+        header = ctk.CTkFrame(self, fg_color=COLORS['accent_blue'], corner_radius=15, height=140)
         header.pack(fill="x", padx=20, pady=20)
         header.pack_propagate(False)
         
@@ -1657,6 +1657,14 @@ class PatientDetailsDialog(ctk.CTkToplevel):
         ctk.CTkLabel(header_content, text=f"Patient ID: #{self.patient_id}", 
                     font=(FONT_FAMILY, 14),
                     text_color="#ffffff").pack(anchor="w")
+
+        # Edit Profile Button
+        ctk.CTkButton(header_content, text="✏ Edit Profile",
+                     command=self._open_edit_dialog,
+                     fg_color="transparent", hover_color=COLORS['accent_blue'],
+                     border_width=1, border_color="#ffffff",
+                     height=32, corner_radius=15,
+                     font=(FONT_FAMILY, 13, "bold")).pack(anchor="w", pady=(10, 0))
         
         # Main content container
         content = ctk.CTkScrollableFrame(self, fg_color="transparent")
@@ -1842,6 +1850,22 @@ class PatientDetailsDialog(ctk.CTkToplevel):
                      height=45, width=150, corner_radius=20,
                      font=(FONT_FAMILY, 14, "bold")).pack(side="right")
     
+    def _open_edit_dialog(self):
+        """Open edit patient dialog"""
+        def on_edit_complete():
+            # Reload patient data
+            self.patient_data = self.db.get_patient(self.patient_id)
+            if self.patient_data:
+                # Rebuild UI to show updated info
+                for widget in self.winfo_children():
+                    widget.destroy()
+                self._build_ui()
+                # Also notify parent app to refresh list
+                if hasattr(self.master, '_search_patients'):
+                    self.master._search_patients(reset_page=False)
+
+        EditPatientDialog(self, self.db, self.patient_id, on_edit_complete)
+
     def _add_info_row(self, parent, label: str, value: str):
         """Add information row - O(1)"""
         row = ctk.CTkFrame(parent, fg_color="transparent")
@@ -1856,6 +1880,224 @@ class PatientDetailsDialog(ctk.CTkToplevel):
                     font=(FONT_FAMILY, 13),
                     text_color=COLORS['text_primary'],
                     anchor="w").pack(side="left", fill="x", expand=True)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# EDIT PATIENT DIALOG - EDITING EXISTING PATIENT RECORDS
+# ═══════════════════════════════════════════════════════════════════════════════
+class EditPatientDialog(ctk.CTkToplevel):
+    """Dialog for editing existing patient records"""
+
+    def __init__(self, parent, db: ClinicDatabase, patient_id: int, callback):
+        super().__init__(parent)
+
+        self.db = db
+        self.patient_id = patient_id
+        self.callback = callback
+
+        # Load patient data
+        self.patient_data = self.db.get_patient(patient_id)
+        if not self.patient_data:
+            messagebox.showerror("Error", "Patient not found!", parent=self)
+            self.destroy()
+            return
+
+        # Window config
+        self.title("Edit Patient Details")
+        self.geometry("600x700")
+        self.resizable(False, False)
+        self.configure(fg_color=COLORS['bg_dark'])
+
+        # Modal
+        self.transient(parent)
+        self.after(150, self.grab_set)
+
+        # Build UI
+        self._build_ui()
+
+        # Center on screen
+        self.update_idletasks()
+        sx = self.winfo_screenwidth()
+        sy = self.winfo_screenheight()
+        self.geometry(f"600x700+{(sx - 600) // 2}+{(sy - 700) // 2}")
+
+    def _build_ui(self):
+        """Build edit dialog UI"""
+        # Header
+        header = ctk.CTkFrame(self, fg_color=COLORS['accent_blue'], corner_radius=15, height=80)
+        header.pack(fill="x", padx=20, pady=20)
+        header.pack_propagate(False)
+
+        ctk.CTkLabel(header, text="✏ Edit Patient",
+                    font=(FONT_FAMILY, 22, "bold"),
+                    text_color="#ffffff").pack(expand=True)
+
+        # Form container
+        form = ctk.CTkScrollableFrame(self, fg_color=COLORS['bg_card'], corner_radius=15)
+        form.pack(fill="both", expand=True, padx=20, pady=(0, 20))
+
+        # Form fields
+        fields_frame = ctk.CTkFrame(form, fg_color="transparent")
+        fields_frame.pack(fill="both", expand=True, padx=30, pady=30)
+
+        # Name section
+        ctk.CTkLabel(fields_frame, text="Personal Information",
+                    font=(FONT_FAMILY, 16, "bold"),
+                    text_color=COLORS['text_primary'],
+                    anchor="w").pack(fill="x", pady=(0, 15))
+
+        # First Name
+        ctk.CTkLabel(fields_frame, text="First Name",
+                    font=(FONT_FAMILY, 14),
+                    text_color=COLORS['text_primary'],
+                    anchor="w").pack(fill="x")
+        self.entry_first_name = ctk.CTkEntry(fields_frame, height=40, corner_radius=20,
+                                            font=(FONT_FAMILY, 14))
+        self.entry_first_name.pack(fill="x", pady=(5, 15))
+        self.entry_first_name.insert(0, self.patient_data.get('first_name') or "")
+
+        # Middle Name
+        ctk.CTkLabel(fields_frame, text="Middle Name (Optional)",
+                    font=(FONT_FAMILY, 14),
+                    text_color=COLORS['text_primary'],
+                    anchor="w").pack(fill="x")
+        self.entry_middle_name = ctk.CTkEntry(fields_frame, height=40, corner_radius=20,
+                                             font=(FONT_FAMILY, 14))
+        self.entry_middle_name.pack(fill="x", pady=(5, 15))
+        if self.patient_data.get('middle_name'):
+            self.entry_middle_name.insert(0, self.patient_data['middle_name'])
+
+        # Last Name
+        ctk.CTkLabel(fields_frame, text="Last Name",
+                    font=(FONT_FAMILY, 14),
+                    text_color=COLORS['text_primary'],
+                    anchor="w").pack(fill="x")
+        self.entry_last_name = ctk.CTkEntry(fields_frame, height=40, corner_radius=20,
+                                           font=(FONT_FAMILY, 14))
+        self.entry_last_name.pack(fill="x", pady=(5, 15))
+        self.entry_last_name.insert(0, self.patient_data.get('last_name') or "")
+
+        # Date of Birth with Calendar Picker
+        ctk.CTkLabel(fields_frame, text="Date of Birth",
+                    font=(FONT_FAMILY, 14),
+                    text_color=COLORS['text_primary'],
+                    anchor="w").pack(fill="x")
+
+        dob_frame = ctk.CTkFrame(fields_frame, fg_color="transparent")
+        dob_frame.pack(fill="x", pady=(5, 15))
+
+        self.entry_dob = ctk.CTkEntry(dob_frame, height=40, corner_radius=20,
+                                     placeholder_text="YYYY-MM-DD",
+                                     font=(FONT_FAMILY, 14))
+        self.entry_dob.pack(side="left", fill="x", expand=True, padx=(0, 10))
+        if self.patient_data.get('date_of_birth'):
+            self.entry_dob.insert(0, self.patient_data['date_of_birth'])
+
+        ctk.CTkButton(dob_frame, text="📅", width=50, height=40,
+                     command=self._open_calendar,
+                     fg_color=COLORS['accent_blue'], hover_color="#0052a3",
+                     font=(FONT_FAMILY, 18)).pack(side="right")
+
+        # Contact Information
+        ctk.CTkLabel(fields_frame, text="Contact Information",
+                    font=(FONT_FAMILY, 16, "bold"),
+                    text_color=COLORS['text_primary'],
+                    anchor="w").pack(fill="x", pady=(20, 15))
+
+        # Contact Number
+        ctk.CTkLabel(fields_frame, text="Contact Number",
+                    font=(FONT_FAMILY, 14),
+                    text_color=COLORS['text_primary'],
+                    anchor="w").pack(fill="x")
+        self.entry_contact = ctk.CTkEntry(fields_frame, height=40, corner_radius=20,
+                                         placeholder_text="09123456789",
+                                         font=(FONT_FAMILY, 14))
+        self.entry_contact.pack(fill="x", pady=(5, 15))
+        if self.patient_data.get('contact_number'):
+            self.entry_contact.insert(0, self.patient_data['contact_number'])
+
+        # Address
+        ctk.CTkLabel(fields_frame, text="Address",
+                    font=(FONT_FAMILY, 14),
+                    text_color=COLORS['text_primary'],
+                    anchor="w").pack(fill="x")
+        self.entry_address = ctk.CTkTextbox(fields_frame, height=80, corner_radius=20,
+                                           font=(FONT_FAMILY, 14))
+        self.entry_address.pack(fill="x", pady=(5, 15))
+        if self.patient_data.get('address'):
+            self.entry_address.insert("1.0", self.patient_data['address'])
+
+        # Notes
+        ctk.CTkLabel(fields_frame, text="Additional Notes",
+                    font=(FONT_FAMILY, 14),
+                    text_color=COLORS['text_primary'],
+                    anchor="w").pack(fill="x")
+        self.entry_notes = ctk.CTkTextbox(fields_frame, height=80, corner_radius=20,
+                                         font=(FONT_FAMILY, 14))
+        self.entry_notes.pack(fill="x", pady=(5, 20))
+        if self.patient_data.get('notes'):
+            self.entry_notes.insert("1.0", self.patient_data['notes'])
+
+        # Buttons
+        button_frame = ctk.CTkFrame(fields_frame, fg_color="transparent")
+        button_frame.pack(fill="x")
+
+        ctk.CTkButton(button_frame, text="Cancel", command=self.destroy,
+                     fg_color=COLORS['text_muted'], hover_color=COLORS['text_secondary'],
+                     height=44, corner_radius=20,
+                     font=(FONT_FAMILY, 13, "bold")).pack(side="left", fill="x", expand=True, padx=(0, 10))
+
+        ctk.CTkButton(button_frame, text="Save Changes", command=self._save_patient,
+                     fg_color=COLORS['accent_green'], hover_color="#16a34a",
+                     height=44, corner_radius=20,
+                     font=(FONT_FAMILY, 13, "bold")).pack(side="right", fill="x", expand=True)
+
+    def _open_calendar(self):
+        """Open calendar picker dialog"""
+        def on_date_selected(date_str):
+            self.entry_dob.delete(0, "end")
+            self.entry_dob.insert(0, date_str)
+        CalendarDialog(self, on_date_selected)
+
+    def _save_patient(self):
+        """Save patient updates to database"""
+        # Get all fields
+        first_name = self.entry_first_name.get().strip() or "Unknown"
+        middle_name = self.entry_middle_name.get().strip()
+        last_name = self.entry_last_name.get().strip() or "Unknown"
+        dob = self.entry_dob.get().strip()
+        contact = self.entry_contact.get().strip()
+        address = self.entry_address.get("1.0", "end-1c").strip()
+        notes = self.entry_notes.get("1.0", "end-1c").strip()
+
+        # Validate DOB format if provided
+        if dob:
+            try:
+                datetime.datetime.strptime(dob, "%Y-%m-%d")
+            except ValueError:
+                messagebox.showerror("Validation Error",
+                                   "Invalid date format! Use YYYY-MM-DD",
+                                   parent=self)
+                return
+
+        # Update database
+        success = self.db.update_patient(
+            patient_id=self.patient_id,
+            first_name=first_name,
+            middle_name=middle_name,
+            last_name=last_name,
+            dob=dob,
+            contact=contact,
+            address=address,
+            notes=notes
+        )
+
+        if success:
+            self.callback()
+            self.destroy()
+            messagebox.showinfo("Success", "Patient details updated successfully!")
+        else:
+            messagebox.showerror("Error", "Failed to update patient details!", parent=self)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
