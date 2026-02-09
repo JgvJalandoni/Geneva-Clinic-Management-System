@@ -1943,25 +1943,33 @@ class CalendarDialog(ctk.CTkToplevel):
 
         self._draw_calendar()
 
+    def _sync_year_selection(self):
+        """Sync internal date with year entry box before navigation"""
+        try:
+            entry_val = self.entry_year.get().strip()
+            if entry_val:
+                year = int(entry_val)
+                if 1900 <= year <= 2100:
+                    self.selected_date = datetime.date(year, self.selected_date.month, 1)
+        except (ValueError, TypeError):
+            pass
+
     def _prev_year(self):
         """Go to previous year"""
+        self._sync_year_selection()
         self.selected_date = datetime.date(self.selected_date.year - 1, self.selected_date.month, 1)
         self._draw_calendar()
 
     def _next_year(self):
         """Go to next year"""
+        self._sync_year_selection()
         self.selected_date = datetime.date(self.selected_date.year + 1, self.selected_date.month, 1)
         self._draw_calendar()
 
     def _on_year_entered(self):
         """Handle year typed into the entry field"""
-        try:
-            year = int(self.entry_year.get().strip())
-            if 1900 <= year <= 2100:
-                self.selected_date = datetime.date(year, self.selected_date.month, 1)
-                self._draw_calendar()
-        except (ValueError, TypeError):
-            pass
+        self._sync_year_selection()
+        self._draw_calendar()
     
     def _draw_calendar(self):
         """Draw calendar grid - O(1) for 7x6 fixed grid"""
@@ -2026,6 +2034,7 @@ class CalendarDialog(ctk.CTkToplevel):
     
     def _prev_month(self):
         """Navigate to previous month - O(1)"""
+        self._sync_year_selection()
         month = self.selected_date.month - 1
         year = self.selected_date.year
         if month < 1:
@@ -2036,6 +2045,7 @@ class CalendarDialog(ctk.CTkToplevel):
     
     def _next_month(self):
         """Navigate to next month - O(1)"""
+        self._sync_year_selection()
         month = self.selected_date.month + 1
         year = self.selected_date.year
         if month > 12:
