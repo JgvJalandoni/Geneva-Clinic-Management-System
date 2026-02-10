@@ -22,7 +22,7 @@ class NewPatientDialog(BaseDialog):
             db: ClinicDatabase instance
             callback: Function to call after patient creation (receives patient_id)
         """
-        super().__init__(parent, "➕ New Patient Registration", 500, 650)
+        super().__init__(parent, "➕ New Patient Registration", 850, 750)
         
         self.db = db
         self.callback = callback
@@ -41,14 +41,28 @@ class NewPatientDialog(BaseDialog):
         form_container.pack(fill="both", expand=True, padx=20, pady=20)
         
         # Form Fields
-        self.entry_name = self.create_form_field(
-            form_container, "Full Name *", "e.g., Juan Dela Cruz")
+        self.entry_last_name = self.create_form_field(
+            form_container, "Last Name *", "e.g., Dela Cruz")
+        self.entry_first_name = self.create_form_field(
+            form_container, "First Name *", "e.g., Juan")
+        self.entry_middle_name = self.create_form_field(
+            form_container, "Middle Name", "e.g., Santos")
+        self.entry_dob = self.create_form_field(
+            form_container, "Date of Birth", "YYYY-MM-DD (optional)")
+        self.entry_sex = self.create_form_field(
+            form_container, "Sex", "Male/Female")
+        self.entry_occupation = self.create_form_field(
+            form_container, "Occupation", "")
+        self.entry_school = self.create_form_field(
+            form_container, "School", "")
+        self.entry_parents = self.create_form_field(
+            form_container, "Parents", "")
+        self.entry_parent_contact = self.create_form_field(
+            form_container, "Parent Contact", "")
         self.entry_address = self.create_form_field(
             form_container, "Address", "e.g., 123 Main St, Quezon City")
         self.entry_contact = self.create_form_field(
             form_container, "Contact Number", "e.g., 09123456789")
-        self.entry_dob = self.create_form_field(
-            form_container, "Date of Birth", "YYYY-MM-DD (optional)")
         
         # Patient Notes
         ctk.CTkLabel(form_container, text="Patient Notes",
@@ -62,7 +76,7 @@ class NewPatientDialog(BaseDialog):
         
         # Info Box
         self.create_info_box(form_container, 
-                           "Only Full Name is required. Other fields are optional.")
+                           "Last Name and First Name are required. Other fields are optional.")
         
         # Buttons
         self.create_button_bar(form_container, [
@@ -72,12 +86,11 @@ class NewPatientDialog(BaseDialog):
     
     def save_patient(self):
         """Validate and save new patient"""
-        name = self.entry_name.get().strip()
+        last_name = self.entry_last_name.get().strip()
+        first_name = self.entry_first_name.get().strip()
         
-        # Validate name
-        is_valid, error_msg = validate_patient_name(name)
-        if not is_valid:
-            messagebox.showerror("Validation Error", error_msg, parent=self)
+        if not last_name or not first_name:
+            messagebox.showerror("Validation Error", "Last Name and First Name are required.", parent=self)
             return
         
         # Validate contact if provided
@@ -90,10 +103,17 @@ class NewPatientDialog(BaseDialog):
         
         # Create patient
         patient_id = self.db.add_patient(
-            full_name=name,
-            address=self.entry_address.get().strip(),
-            contact=contact,
+            last_name=last_name,
+            first_name=first_name,
+            middle_name=self.entry_middle_name.get().strip(),
             dob=self.entry_dob.get().strip(),
+            sex=self.entry_sex.get().strip(),
+            occupation=self.entry_occupation.get().strip(),
+            parents=self.entry_parents.get().strip(),
+            parent_contact=self.entry_parent_contact.get().strip(),
+            school=self.entry_school.get().strip(),
+            contact=contact,
+            address=self.entry_address.get().strip(),
             notes=self.txt_notes.get("1.0", "end-1c").strip()
         )
         
@@ -123,7 +143,7 @@ class EditPatientDialog(BaseDialog):
             patient_id: ID of patient to edit
             callback: Function to call after update
         """
-        super().__init__(parent, f"✏️ Edit Patient #{patient_id}", 500, 650)
+        super().__init__(parent, f"✏️ Edit Patient #{patient_id}", 850, 750)
         
         self.db = db
         self.patient_id = patient_id
@@ -143,10 +163,18 @@ class EditPatientDialog(BaseDialog):
         form_container.pack(fill="both", expand=True, padx=20, pady=20)
         
         # Form Fields
-        self.entry_name = self.create_form_field(form_container, "Full Name *", "")
+        self.entry_last_name = self.create_form_field(form_container, "Last Name *", "")
+        self.entry_first_name = self.create_form_field(form_container, "First Name *", "")
+        self.entry_middle_name = self.create_form_field(form_container, "Middle Name", "")
+        self.entry_dob = self.create_form_field(form_container, "Date of Birth", "MM/DD/YYYY")
+        self.entry_sex = self.create_form_field(form_container, "Sex", "")
+        self.entry_civil_status = self.create_form_field(form_container, "Civil Status", "")
+        self.entry_occupation = self.create_form_field(form_container, "Occupation", "")
+        self.entry_school = self.create_form_field(form_container, "School", "")
+        self.entry_parents = self.create_form_field(form_container, "Parents", "")
+        self.entry_parent_contact = self.create_form_field(form_container, "Parent Contact", "")
         self.entry_address = self.create_form_field(form_container, "Address", "")
         self.entry_contact = self.create_form_field(form_container, "Contact Number", "")
-        self.entry_dob = self.create_form_field(form_container, "Date of Birth", "YYYY-MM-DD")
         
         # Patient Notes
         ctk.CTkLabel(form_container, text="Patient Notes",
@@ -168,29 +196,46 @@ class EditPatientDialog(BaseDialog):
         """Load existing patient data"""
         patient = self.db.get_patient(self.patient_id)
         if patient:
-            self.entry_name.insert(0, patient['full_name'] or "")
+            self.entry_last_name.insert(0, patient['last_name'] or "")
+            self.entry_first_name.insert(0, patient['first_name'] or "")
+            self.entry_middle_name.insert(0, patient['middle_name'] or "")
+            from utils import db_date_to_ui
+            self.entry_dob.insert(0, db_date_to_ui(patient['date_of_birth']))
+            self.entry_sex.insert(0, patient['sex'] or "")
+            self.entry_civil_status.insert(0, patient['civil_status'] or "")
+            self.entry_occupation.insert(0, patient['occupation'] or "")
+            self.entry_school.insert(0, patient['school'] or "")
+            self.entry_parents.insert(0, patient['parents'] or "")
+            self.entry_parent_contact.insert(0, patient['parent_contact'] or "")
             self.entry_address.insert(0, patient['address'] or "")
             self.entry_contact.insert(0, patient['contact_number'] or "")
-            self.entry_dob.insert(0, patient['date_of_birth'] or "")
             self.txt_notes.insert("1.0", patient['notes'] or "")
     
     def update_patient(self):
         """Validate and update patient"""
-        name = self.entry_name.get().strip()
+        last_name = self.entry_last_name.get().strip()
+        first_name = self.entry_first_name.get().strip()
         
-        # Validate name
-        is_valid, error_msg = validate_patient_name(name)
-        if not is_valid:
-            messagebox.showerror("Validation Error", error_msg, parent=self)
+        if not last_name or not first_name:
+            messagebox.showerror("Validation Error", "Last Name and First Name are required.", parent=self)
             return
         
+        from utils import ui_date_to_db
         # Update patient
         if self.db.update_patient(
             patient_id=self.patient_id,
-            full_name=name,
+            last_name=last_name,
+            first_name=first_name,
+            middle_name=self.entry_middle_name.get().strip(),
+            dob=ui_date_to_db(self.entry_dob.get().strip()),
+            sex=self.entry_sex.get().strip(),
+            civil_status=self.entry_civil_status.get().strip(),
+            occupation=self.entry_occupation.get().strip(),
+            parents=self.entry_parents.get().strip(),
+            parent_contact=self.entry_parent_contact.get().strip(),
+            school=self.entry_school.get().strip(),
             address=self.entry_address.get().strip(),
             contact=self.entry_contact.get().strip(),
-            dob=self.entry_dob.get().strip(),
             notes=self.txt_notes.get("1.0", "end-1c").strip()
         ):
             messagebox.showinfo("Success", "✓ Patient updated successfully!", parent=self)
@@ -212,7 +257,7 @@ class PatientHistoryDialog(BaseDialog):
             db: ClinicDatabase instance
             patient_id: ID of patient to show history for
         """
-        super().__init__(parent, "📊 Patient History", 900, 600)
+        super().__init__(parent, "📊 Patient History", 1100, 700)
         
         self.db = db
         self.patient_id = patient_id

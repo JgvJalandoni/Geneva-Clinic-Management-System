@@ -27,7 +27,7 @@ class QuickVisitSearchDialog(BaseDialog):
             db: ClinicDatabase instance
             callback: Function to call with selected patient (patient_id, patient_name)
         """
-        super().__init__(parent, "🔍 Quick Visit - Select Patient", 650, 650)
+        super().__init__(parent, "🔍 Quick Visit - Select Patient", 850, 750)
         
         self.db = db
         self.callback = callback
@@ -135,7 +135,7 @@ class QuickVisitSearchDialog(BaseDialog):
         
         # Name (bold, larger)
         name_label = ctk.CTkLabel(content_frame,
-                                 text=f"👤 {patient['full_name']}",
+                                 text=f"👤 {patient['last_name']}, {patient['first_name']}",
                                  font=(FONT_FAMILY, 14, "bold"),
                                  text_color=COLORS['text_primary'],
                                  anchor="w")
@@ -143,11 +143,13 @@ class QuickVisitSearchDialog(BaseDialog):
         name_label.bind("<Button-1>", lambda e: self.select_patient(patient))
         
         # Info row
+        from utils import format_phone_number
         info_parts = [f"ID: {patient['patient_id']}"]
         if patient.get('contact_number'):
-            info_parts.append(f"📞 {patient['contact_number']}")
+            info_parts.append(f"📞 {format_phone_number(patient['contact_number'])}")
         if patient.get('last_visit'):
-            info_parts.append(f"Last visit: {patient['last_visit']}")
+            from utils import format_date_readable
+            info_parts.append(f"Last visit: {format_date_readable(patient['last_visit'])}")
         
         info_label = ctk.CTkLabel(content_frame,
                                  text=" | ".join(info_parts),
@@ -173,7 +175,8 @@ class QuickVisitSearchDialog(BaseDialog):
     def select_patient(self, patient: dict):
         """Patient selected - proceed to visit form"""
         self.destroy()
-        self.callback(patient['patient_id'], patient['full_name'])
+        full_name = f"{patient['last_name']}, {patient['first_name']}"
+        self.callback(patient['patient_id'], full_name)
     
     def create_new_patient(self):
         """Open new patient dialog"""
@@ -197,7 +200,7 @@ class QuickVisitFormDialog(BaseDialog):
             patient_name: Name of selected patient
             callback: Function to call after visit saved
         """
-        super().__init__(parent, f"📋 Quick Visit - {patient_name}", 550, 720)
+        super().__init__(parent, f"📋 Quick Visit - {patient_name}", 850, 850)
         
         self.db = db
         self.patient_id = patient_id
@@ -225,22 +228,37 @@ class QuickVisitFormDialog(BaseDialog):
         dt_inner.pack(fill="x", padx=15, pady=15)
         dt_inner.columnconfigure((0, 1), weight=1)
         
+        # Reference Number
+        ref_frame = ctk.CTkFrame(dt_inner, fg_color="transparent")
+        ref_frame.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 10))
+        
+        ctk.CTkLabel(ref_frame, text="🔢 Reference Number",
+                    font=(FONT_FAMILY, 14, "bold"),
+                    text_color=COLORS['text_secondary']).pack(anchor="w")
+        self.entry_ref = ctk.CTkEntry(ref_frame, height=44,
+                                     fg_color=COLORS['bg_dark'],
+                                     border_width=1, border_color=COLORS['border'])
+        self.entry_ref.insert(0, str(self.db.get_next_reference_number()))
+        self.entry_ref.pack(fill="x", pady=(5, 0))
+
         # Date
         date_frame = ctk.CTkFrame(dt_inner, fg_color="transparent")
-        date_frame.grid(row=0, column=0, sticky="ew", padx=(0, 5))
+        date_frame.grid(row=1, column=0, sticky="ew", padx=(0, 5))
         
-        ctk.CTkLabel(date_frame, text="📅 Visit Date",
+        ctk.CTkLabel(date_frame, text="📅 Visit Date (MM/DD/YYYY)",
                     font=(FONT_FAMILY, 14, "bold"),
                     text_color=COLORS['text_secondary']).pack(anchor="w")
         self.entry_date = ctk.CTkEntry(date_frame, height=44,
                                       fg_color=COLORS['bg_dark'],
-                                      border_width=1, border_color=COLORS['border'])
+                                      border_width=1, border_color=COLORS['border'],
+                                      placeholder_text="MM/DD/YYYY")
+        from utils import get_current_date
         self.entry_date.insert(0, get_current_date())
         self.entry_date.pack(fill="x", pady=(5, 0))
         
         # Time
         time_frame = ctk.CTkFrame(dt_inner, fg_color="transparent")
-        time_frame.grid(row=0, column=1, sticky="ew", padx=(5, 0))
+        time_frame.grid(row=1, column=1, sticky="ew", padx=(5, 0))
         
         ctk.CTkLabel(time_frame, text="🕐 Visit Time",
                     font=(FONT_FAMILY, 14, "bold"),
@@ -313,14 +331,17 @@ class QuickVisitFormDialog(BaseDialog):
     
     def save_visit(self):
         """Validate and save visit"""
-        visit_date = self.entry_date.get().strip()
+        visit_date_ui = self.entry_date.get().strip()
         time_input = self.entry_time.get().strip()
         
+        from utils import validate_date, ui_date_to_db
         # Validate date
-        is_valid, error_msg = validate_date(visit_date)
+        is_valid, error_msg = validate_date(visit_date_ui)
         if not is_valid:
             messagebox.showerror("Validation Error", error_msg, parent=self)
             return
+            
+        visit_date = ui_date_to_db(visit_date_ui)
         
         # Parse time
         visit_time = parse_time_input(time_input)
@@ -329,26 +350,21 @@ class QuickVisitFormDialog(BaseDialog):
                 "Time format not recognized. Save without time?", parent=self):
                 return
             visit_time = get_current_time_24hr()
+            
+        # Reference number
+        try:
+            reference_number = int(self.entry_ref.get().strip())
+            if not self.db.is_reference_number_available(reference_number):
+                messagebox.showerror("Validation Error", f"Reference #{reference_number} already exists!", parent=self)
+                return
+        except ValueError:
+            messagebox.showerror("Validation Error", "Invalid reference number!", parent=self)
+            return
         
         # Parse and validate vitals
         weight = safe_float(self.entry_weight.get())
         height = safe_float(self.entry_height.get())
         temp = safe_float(self.entry_temp.get())
-        
-        is_valid, error_msg = validate_weight(weight)
-        if not is_valid:
-            messagebox.showerror("Validation Error", error_msg, parent=self)
-            return
-        
-        is_valid, error_msg = validate_height(height)
-        if not is_valid:
-            messagebox.showerror("Validation Error", error_msg, parent=self)
-            return
-        
-        is_valid, error_msg = validate_temperature(temp)
-        if not is_valid:
-            messagebox.showerror("Validation Error", error_msg, parent=self)
-            return
         
         # Save visit
         visit_id = self.db.add_visit(
@@ -359,20 +375,21 @@ class QuickVisitFormDialog(BaseDialog):
             height=height,
             bp=self.entry_bp.get().strip(),
             temp=temp,
-            notes=self.txt_notes.get("1.0", "end-1c").strip()
+            notes=self.txt_notes.get("1.0", "end-1c").strip(),
+            reference_number=reference_number
         )
         
         if visit_id:
-            self.show_success(visit_id, visit_date, visit_time)
+            self.show_success(visit_id, visit_date_ui, visit_time, reference_number)
         else:
             messagebox.showerror("Error", "Failed to save visit.", parent=self)
     
-    def show_success(self, visit_id: int, visit_date: str, visit_time: str):
+    def show_success(self, visit_id: int, visit_date: str, visit_time: str, reference_number: int):
         """Show success dialog with options"""
         self.destroy()
         
         # Success dialog
-        success_dialog = BaseDialog(self.master, "✅ Visit Saved", 400, 300)
+        success_dialog = BaseDialog(self.master, "✅ Visit Saved", 400, 320)
         
         # Header
         success_dialog.create_header("✅", "Visit Saved Successfully!",
@@ -385,8 +402,9 @@ class QuickVisitFormDialog(BaseDialog):
         info_card = ctk.CTkFrame(content, fg_color=COLORS['bg_card'], corner_radius=10)
         info_card.pack(fill="x", pady=(0, 20))
         
+        from utils import format_reference_number
         info_text = f"""Patient: {self.patient_name}
-Visit ID: #{visit_id}
+Reference: {format_reference_number(reference_number)}
 Date: {visit_date}
 Time: {format_time_12hr(visit_time)}"""
         
