@@ -29,25 +29,48 @@ class ClinicDatabase:
         return self._conn
     
     def init_db(self):
-        """Initialize database schema - OPTIMIZED structure with separated name fields"""
+        """Initialize database schema - UPDATED with additional patient fields"""
         try:
             with self.get_connection() as conn:
                 cursor = conn.cursor()
                 
-                # Patients Table - OPTIMIZED with separated name fields
+                # Patients Table - UPDATED with sex, occupation, parents, school, civil_status
                 cursor.execute("""
                     CREATE TABLE IF NOT EXISTS patients (
                         patient_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        last_name TEXT NOT NULL,
                         first_name TEXT NOT NULL,
                         middle_name TEXT,
-                        last_name TEXT NOT NULL,
                         date_of_birth TEXT,
+                        sex TEXT,
+                        civil_status TEXT,
+                        occupation TEXT,
+                        parents TEXT,
+                        parent_contact TEXT,
+                        school TEXT,
                         contact_number TEXT,
                         address TEXT,
                         notes TEXT,
                         registered_date TEXT DEFAULT CURRENT_TIMESTAMP
                     )
                 """)
+                
+                # Migration: Add missing columns if table already exists
+                cursor.execute("PRAGMA table_info(patients)")
+                columns = [column[1] for column in cursor.fetchall()]
+                
+                migrations = [
+                    ("sex", "TEXT"),
+                    ("civil_status", "TEXT"),
+                    ("occupation", "TEXT"),
+                    ("parents", "TEXT"),
+                    ("parent_contact", "TEXT"),
+                    ("school", "TEXT")
+                ]
+                
+                for col_name, col_type in migrations:
+                    if col_name not in columns:
+                        cursor.execute(f"ALTER TABLE patients ADD COLUMN {col_name} {col_type}")
                 
                 # Visit Logs Table - with reference_number for encoding old records
                 cursor.execute("""
@@ -96,17 +119,25 @@ class ClinicDatabase:
     # PATIENT OPERATIONS
     # ═══════════════════════════════════════════════════════════════════════════
     
-    def add_patient(self, first_name: str, middle_name: str, last_name: str,
-                   dob: str = "", contact: str = "", address: str = "", notes: str = "") -> Optional[int]:
+    def add_patient(self, last_name: str, first_name: str, middle_name: str = "",
+                   dob: str = "", sex: str = "", civil_status: str = "", occupation: str = "", 
+                   parents: str = "", parent_contact: str = "", school: str = "",
+                   contact: str = "", address: str = "", notes: str = "") -> Optional[int]:
         """
-        Create new patient record - OPTIMIZED with separated name fields
+        Create new patient record - UPDATED with additional fields
         
         Args:
+            last_name: Patient's last name (required)
             first_name: Patient's first name (required)
             middle_name: Patient's middle name (optional)
-            last_name: Patient's last name (required)
             dob: Date of birth in YYYY-MM-DD format (optional)
-            contact: Contact number (optional)
+            sex: Male/Female (optional)
+            civil_status: Single/Married/etc (optional)
+            occupation: Patient's occupation (optional)
+            parents: Parents' names (optional)
+            parent_contact: Parents' contact number (optional)
+            school: Patient's school (optional)
+            contact: Patient's contact number (optional)
             address: Patient's address (optional)
             notes: Additional notes (optional)
             
@@ -117,10 +148,13 @@ class ClinicDatabase:
             with self.get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute("""
-                    INSERT INTO patients (first_name, middle_name, last_name, date_of_birth, 
+                    INSERT INTO patients (last_name, first_name, middle_name, date_of_birth, 
+                                        sex, civil_status, occupation, parents, parent_contact, school,
                                         contact_number, address, notes)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
-                """, (first_name, middle_name or None, last_name, dob or None, 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (last_name, first_name, middle_name or None, dob or None, 
+                      sex or None, civil_status or None, occupation or None, parents or None, 
+                      parent_contact or None, school or None,
                       contact or None, address or None, notes or None))
                 conn.commit()
                 return cursor.lastrowid
@@ -128,17 +162,25 @@ class ClinicDatabase:
             print(f"Error adding patient: {e}")
             return None
     
-    def update_patient(self, patient_id: int, first_name: str, middle_name: str, last_name: str,
-                      dob: str = "", contact: str = "", address: str = "", notes: str = "") -> bool:
+    def update_patient(self, patient_id: int, last_name: str, first_name: str, middle_name: str = "",
+                      dob: str = "", sex: str = "", civil_status: str = "", occupation: str = "", 
+                      parents: str = "", parent_contact: str = "", school: str = "",
+                      contact: str = "", address: str = "", notes: str = "") -> bool:
         """
-        Update existing patient record - OPTIMIZED
+        Update existing patient record - UPDATED
         
         Args:
             patient_id: ID of patient to update
+            last_name: Updated last name
             first_name: Updated first name
             middle_name: Updated middle name
-            last_name: Updated last name
             dob: Updated date of birth
+            sex: Updated sex
+            civil_status: Updated civil status
+            occupation: Updated occupation
+            parents: Updated parents
+            parent_contact: Updated parent contact
+            school: Updated school
             contact: Updated contact number
             address: Updated address
             notes: Updated notes
@@ -151,10 +193,13 @@ class ClinicDatabase:
                 cursor = conn.cursor()
                 cursor.execute("""
                     UPDATE patients 
-                    SET first_name=?, middle_name=?, last_name=?, date_of_birth=?, 
+                    SET last_name=?, first_name=?, middle_name=?, date_of_birth=?, 
+                        sex=?, civil_status=?, occupation=?, parents=?, parent_contact=?, school=?,
                         contact_number=?, address=?, notes=?
                     WHERE patient_id=?
-                """, (first_name, middle_name or None, last_name, dob or None, 
+                """, (last_name, first_name, middle_name or None, dob or None, 
+                      sex or None, civil_status or None, occupation or None, parents or None, 
+                      parent_contact or None, school or None,
                       contact or None, address or None, notes or None, patient_id))
                 conn.commit()
                 return True
@@ -220,6 +265,98 @@ class ClinicDatabase:
         except sqlite3.Error:
             return []
     
+    def search_patients_filtered(self, query: str = "", filters: Dict = None, page: int = 1, per_page: int = 10) -> tuple:
+        """
+        Advanced search with filters and pagination
+        
+        Filters can include:
+        - age_min, age_max
+        - sex
+        - civil_status
+        - last_visit_start, last_visit_end
+        - registered_start, registered_end
+        """
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                
+                base_query = """
+                    FROM patients p
+                    LEFT JOIN (
+                        SELECT patient_id, MAX(visit_date) as last_visit
+                        FROM visit_logs
+                        GROUP BY patient_id
+                    ) v ON p.patient_id = v.patient_id
+                    WHERE 1=1
+                """
+                params = []
+                
+                if query:
+                    base_query += " AND (p.first_name LIKE ? OR p.middle_name LIKE ? OR p.last_name LIKE ?)"
+                    q = f"%{query}%"
+                    params.extend([q, q, q])
+                
+                if filters:
+                    if filters.get('sex'):
+                        base_query += " AND p.sex = ?"
+                        params.append(filters['sex'])
+                    
+                    if filters.get('civil_status'):
+                        base_query += " AND p.civil_status = ?"
+                        params.append(filters['civil_status'])
+                    
+                    # Age filter (calculated from DOB)
+                    if filters.get('age_min') is not None or filters.get('age_max') is not None:
+                        today = datetime.date.today()
+                        if filters.get('age_min') is not None:
+                            # Born on or before this date
+                            max_birth_year = today.year - int(filters['age_min'])
+                            max_dob = f"{max_birth_year}-{today.month:02d}-{today.day:02d}"
+                            base_query += " AND p.date_of_birth <= ?"
+                            params.append(max_dob)
+                        
+                        if filters.get('age_max') is not None:
+                            # Born on or after this date
+                            min_birth_year = today.year - int(filters['age_max']) - 1
+                            min_dob = f"{min_birth_year}-{today.month:02d}-{today.day:02d}"
+                            base_query += " AND p.date_of_birth >= ?"
+                            params.append(min_dob)
+
+                    if filters.get('last_visit_start'):
+                        base_query += " AND v.last_visit >= ?"
+                        params.append(filters['last_visit_start'])
+                    
+                    if filters.get('last_visit_end'):
+                        base_query += " AND v.last_visit <= ?"
+                        params.append(filters['last_visit_end'])
+                        
+                    if filters.get('registered_start'):
+                        base_query += " AND p.registered_date >= ?"
+                        params.append(filters['registered_start'] + " 00:00:00")
+                    
+                    if filters.get('registered_end'):
+                        base_query += " AND p.registered_date <= ?"
+                        params.append(filters['registered_end'] + " 23:59:59")
+
+                # Get total count
+                cursor.execute(f"SELECT COUNT(DISTINCT p.patient_id) {base_query}", params)
+                total = cursor.fetchone()[0]
+
+                # Get paginated results
+                offset = (page - 1) * per_page
+                cursor.execute(f"""
+                    SELECT p.*, v.last_visit
+                    {base_query}
+                    ORDER BY p.last_name, p.first_name
+                    LIMIT ? OFFSET ?
+                """, params + [per_page, offset])
+                
+                patients = [dict(row) for row in cursor.fetchall()]
+                return patients, total
+        except sqlite3.Error as e:
+            print(f"Filtered search error: {e}")
+            return [], 0
+
     def get_all_patients(self) -> List[Dict]:
         """
         Get all patients ordered by last name, first name - OPTIMIZED
@@ -413,6 +550,53 @@ class ClinicDatabase:
         except sqlite3.Error:
             return []
 
+    def get_patient_visits_paginated(self, patient_id: int, page: int = 1, per_page: int = 10, 
+                                    start_date: str = None, end_date: str = None) -> tuple:
+        """
+        Get visits for a patient with pagination and optional date filters
+
+        Args:
+            patient_id: ID of the patient
+            page: Page number
+            per_page: Records per page
+            start_date: YYYY-MM-DD
+            end_date: YYYY-MM-DD
+
+        Returns:
+            Tuple of (list of visits, total count)
+        """
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                
+                query_cond = "WHERE patient_id = ?"
+                params = [patient_id]
+                
+                if start_date:
+                    query_cond += " AND visit_date >= ?"
+                    params.append(start_date)
+                if end_date:
+                    query_cond += " AND visit_date <= ?"
+                    params.append(end_date)
+
+                # Get total count
+                cursor.execute(f"SELECT COUNT(*) FROM visit_logs {query_cond}", params)
+                total = cursor.fetchone()[0]
+
+                # Get paginated results
+                offset = (page - 1) * per_page
+                cursor.execute(f"""
+                    SELECT * FROM visit_logs
+                    {query_cond}
+                    ORDER BY reference_number DESC
+                    LIMIT ? OFFSET ?
+                """, params + [per_page, offset])
+                
+                visits = [dict(row) for row in cursor.fetchall()]
+                return visits, total
+        except sqlite3.Error:
+            return [], 0
+
     def get_all_visits(self) -> List[Dict]:
         """
         Get all visits with patient information, ordered by reference number
@@ -437,13 +621,17 @@ class ClinicDatabase:
         except sqlite3.Error:
             return []
 
-    def get_visits_paginated(self, page: int = 1, per_page: int = 10) -> tuple:
+    def get_visits_paginated(self, page: int = 1, per_page: int = 10, query: str = "", 
+                             start_date: str = None, end_date: str = None) -> tuple:
         """
-        Get visits with pagination
+        Get visits with pagination and optional search/date filters
 
         Args:
             page: Page number (1-indexed)
             per_page: Records per page
+            query: Search string for patient name
+            start_date: YYYY-MM-DD
+            end_date: YYYY-MM-DD
 
         Returns:
             Tuple of (list of visits, total count)
@@ -451,13 +639,34 @@ class ClinicDatabase:
         try:
             with self.get_connection() as conn:
                 cursor = conn.cursor()
+                
+                query_cond = "WHERE 1=1"
+                params = []
+                
+                if query:
+                    query_cond += " AND (p.first_name LIKE ? OR p.middle_name LIKE ? OR p.last_name LIKE ?)"
+                    q = f"%{query}%"
+                    params.extend([q, q, q])
+                
+                if start_date:
+                    query_cond += " AND v.visit_date >= ?"
+                    params.append(start_date)
+                if end_date:
+                    query_cond += " AND v.visit_date <= ?"
+                    params.append(end_date)
+
                 # Get total count
-                cursor.execute("SELECT COUNT(*) FROM visit_logs")
+                cursor.execute(f"""
+                    SELECT COUNT(*) 
+                    FROM visit_logs v
+                    JOIN patients p ON v.patient_id = p.patient_id
+                    {query_cond}
+                """, params)
                 total = cursor.fetchone()[0]
 
                 # Get paginated results
                 offset = (page - 1) * per_page
-                cursor.execute("""
+                cursor.execute(f"""
                     SELECT v.visit_id, v.reference_number, v.visit_date, v.visit_time, v.weight_kg, v.height_cm,
                            v.blood_pressure, v.temperature_celsius, v.medical_notes, v.created_at,
                            p.patient_id, p.first_name, p.middle_name, p.last_name,
@@ -465,12 +674,15 @@ class ClinicDatabase:
                             CASE WHEN p.middle_name IS NOT NULL THEN ' ' || p.middle_name ELSE '' END) as full_name
                     FROM visit_logs v
                     JOIN patients p ON v.patient_id = p.patient_id
-                    ORDER BY v.reference_number DESC
+                    {query_cond}
+                    ORDER BY v.visit_date DESC, v.visit_time DESC, v.reference_number DESC
                     LIMIT ? OFFSET ?
-                """, (per_page, offset))
+                """, params + [per_page, offset])
+                
                 visits = [dict(row) for row in cursor.fetchall()]
                 return visits, total
-        except sqlite3.Error:
+        except sqlite3.Error as e:
+            print(f"Paginated visits error: {e}")
             return [], 0
     
     def get_visit_by_id(self, visit_id: int) -> Optional[Dict]:
@@ -723,7 +935,7 @@ class ClinicDatabase:
     
     def export_to_csv(self, filepath: str) -> bool:
         """
-        Export all visit data to CSV file - OPTIMIZED
+        Export all visit data to CSV file - UPDATED
         
         Args:
             filepath: Destination CSV file path
@@ -736,8 +948,9 @@ class ClinicDatabase:
                 cursor = conn.cursor()
                 cursor.execute("""
                     SELECT 
-                        p.patient_id, p.first_name, p.middle_name, p.last_name, 
-                        p.date_of_birth, p.contact_number, p.address,
+                        p.patient_id, p.last_name, p.first_name, p.middle_name, 
+                        p.date_of_birth, p.sex, p.occupation, p.parents, p.parent_contact, p.school,
+                        p.contact_number, p.address,
                         v.visit_id, v.visit_date, v.visit_time, v.weight_kg, v.height_cm, 
                         v.blood_pressure, v.temperature_celsius, v.medical_notes, v.created_at
                     FROM visit_logs v
@@ -748,8 +961,9 @@ class ClinicDatabase:
             
             with open(filepath, 'w', newline='', encoding='utf-8') as f:
                 writer = csv.writer(f)
-                writer.writerow(["Patient ID", "First Name", "Middle Name", "Last Name", 
-                               "DOB", "Contact", "Address",
+                writer.writerow(["Patient ID", "Last Name", "First Name", "Middle Name", 
+                               "DOB", "Sex", "Occupation", "Parents", "Parent Contact", "School",
+                               "Contact", "Address",
                                "Visit ID", "Date", "Time", "Weight (kg)", "Height (cm)", 
                                "BP", "Temp (°C)", "Notes", "Timestamp"])
                 writer.writerows(data)

@@ -138,20 +138,31 @@ def seed_database():
     for i in range(30):
         # Random gender
         is_female = random.random() > 0.5
+        sex = "Female" if is_female else "Male"
 
         if is_female:
             first_name = random.choice(FIRST_NAMES_FEMALE)
         else:
             first_name = random.choice(FIRST_NAMES_MALE)
 
-        middle_name = random.choice(MIDDLE_NAMES) if random.random() > 0.2 else None
+        middle_name = random.choice(MIDDLE_NAMES) if random.random() > 0.2 else ""
         last_name = random.choice(LAST_NAMES)
         dob = generate_dob()
-        contact = generate_phone() if random.random() > 0.1 else None
-        address = random.choice(ADDRESSES) if random.random() > 0.15 else None
+        contact = generate_phone() if random.random() > 0.1 else ""
+        address = random.choice(ADDRESSES) if random.random() > 0.15 else ""
+        
+        # New fields dummy data
+        occupations = ["Student", "Teacher", "Engineer", "Doctor", "Nurse", "Sales", "Farmer", "Unemployed"]
+        occupation = random.choice(occupations) if random.random() > 0.3 else ""
+        
+        parents = f"{random.choice(FIRST_NAMES_MALE)} & {random.choice(FIRST_NAMES_FEMALE)} {last_name}" if random.random() > 0.5 else ""
+        parent_contact = generate_phone() if parents and random.random() > 0.2 else ""
+        
+        schools = ["Central Elementary School", "West High School", "University of the Philippines", "St. Jude College"]
+        school = random.choice(schools) if random.random() > 0.7 else ""
 
         # Some patients have notes
-        notes = None
+        notes = ""
         if random.random() > 0.7:
             note_options = [
                 "Regular patient",
@@ -166,10 +177,15 @@ def seed_database():
             notes = random.choice(note_options)
 
         patient_id = db.add_patient(
+            last_name=last_name,
             first_name=first_name,
             middle_name=middle_name,
-            last_name=last_name,
             dob=dob,
+            sex=sex,
+            occupation=occupation,
+            parents=parents,
+            parent_contact=parent_contact,
+            school=school,
             contact=contact,
             address=address,
             notes=notes
