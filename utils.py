@@ -96,12 +96,12 @@ def parse_time_input(time_str: str) -> Optional[str]:
 
 def get_current_date() -> str:
     """
-    Get current date in YYYY-MM-DD format
+    Get current date in MM/DD/YYYY format for UI
     
     Returns:
         Current date string
     """
-    return datetime.date.today().strftime(DATETIME_FORMATS['date_input'])
+    return datetime.date.today().strftime("%m/%d/%Y")
 
 
 def get_current_time_12hr() -> str:
@@ -144,13 +144,78 @@ def get_export_timestamp() -> str:
     return datetime.datetime.now().strftime(DATETIME_FORMATS['export_filename'])
 
 
+def ui_date_to_db(date_str: str) -> Optional[str]:
+    """Convert MM/DD/YYYY to YYYY-MM-DD"""
+    if not date_str: return None
+    try:
+        dt = datetime.datetime.strptime(date_str, "%m/%d/%Y")
+        return dt.strftime("%Y-%m-%d")
+    except ValueError:
+        # Fallback if already in DB format or other
+        try:
+            dt = datetime.datetime.strptime(date_str, "%Y-%m-%d")
+            return dt.strftime("%Y-%m-%d")
+        except ValueError:
+            return None
+
+
+def db_date_to_ui(date_str: str) -> str:
+    """Convert YYYY-MM-DD to MM/DD/YYYY"""
+    if not date_str: return ""
+    try:
+        dt = datetime.datetime.strptime(date_str, "%Y-%m-%d")
+        return dt.strftime("%m/%d/%Y")
+    except ValueError:
+        return date_str
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# DATA FORMATTING
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def format_phone_number(phone: str) -> str:
+    """
+    Format phone number to 4-3-4 format: 0995 647 7081
+    """
+    if not phone:
+        return "—"
+    
+    # Remove all non-digit characters
+    digits = "".join(filter(str.isdigit, phone))
+    
+    if len(digits) == 11:
+        return f"{digits[:4]} {digits[4:7]} {digits[7:]}"
+    elif len(digits) == 10:
+        # Assume missing leading zero
+        digits = "0" + digits
+        return f"{digits[:4]} {digits[4:7]} {digits[7:]}"
+    
+    return phone
+
+
+def format_reference_number(ref: any) -> str:
+    """
+    Format reference number to 00-00-00 display format
+    """
+    if ref is None:
+        return "—"
+    
+    # Ensure it's a string of at least 6 digits
+    ref_str = str(ref).zfill(6)
+    
+    if len(ref_str) == 6:
+        return f"{ref_str[:2]}-{ref_str[2:4]}-{ref_str[4:]}"
+    
+    return ref_str
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # VALIDATION FUNCTIONS
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def validate_date(date_str: str) -> tuple[bool, str]:
     """
-    Validate date string format
+    Validate date string format (expects MM/DD/YYYY)
     
     Args:
         date_str: Date string to validate
@@ -162,10 +227,28 @@ def validate_date(date_str: str) -> tuple[bool, str]:
         return False, "Date is required"
     
     try:
-        datetime.datetime.strptime(date_str, DATETIME_FORMATS['date_input'])
+        datetime.datetime.strptime(date_str, "%m/%d/%Y")
         return True, ""
     except ValueError:
-        return False, "Invalid date format. Use YYYY-MM-DD"
+        # Check if it's already in DB format (YYYY-MM-DD)
+        try:
+            datetime.datetime.strptime(date_str, "%Y-%m-%d")
+            return True, ""
+        except ValueError:
+            return False, "Invalid date format. Use MM/DD/YYYY"
+
+
+def validate_contact_number(contact: str) -> tuple[bool, str]:
+    """
+    Validate contact number format
+    """
+    if not contact:
+        return True, ""
+        
+    digits = "".join(filter(str.isdigit, contact))
+    if len(digits) in [10, 11]:
+        return True, ""
+    return False, "Contact number must be 10 or 11 digits."
 
 
 def validate_weight(weight: Optional[float]) -> tuple[bool, str]:
