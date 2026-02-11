@@ -84,7 +84,8 @@ class ClinicApp(ctk.CTk):
             'last_visit_start': None,
             'last_visit_end': None,
             'registered_start': None,
-            'registered_end': None
+            'registered_end': None,
+            'alpha_last_name': None
         }
         
         self.overview_filters = {
@@ -497,6 +498,31 @@ class ClinicApp(ctk.CTk):
                      border_width=1, border_color=COLORS['border'],
                      font=(FONT_FAMILY, 14, "bold")).pack(side="left", padx=5)
         
+        # Alphabetical Filter Bar
+        alpha_frame = ctk.CTkFrame(frame, fg_color=COLORS['bg_card'], corner_radius=15, height=50,
+                                  border_width=1, border_color=COLORS['border'])
+        alpha_frame.pack(fill="x", pady=(0, 15))
+        alpha_frame.pack_propagate(False)
+        
+        alpha_content = ctk.CTkFrame(alpha_frame, fg_color="transparent")
+        alpha_content.pack(expand=True)
+        
+        # "ALL" button
+        self.btn_alpha_all = ctk.CTkButton(alpha_content, text="ALL", width=45, height=32, corner_radius=10,
+                                         fg_color=COLORS['accent_blue'], font=(FONT_FAMILY, 11, "bold"),
+                                         command=lambda: self._filter_by_alpha(None))
+        self.btn_alpha_all.pack(side="left", padx=2)
+        
+        self.alpha_buttons = {}
+        import string
+        for char in string.ascii_uppercase:
+            btn = ctk.CTkButton(alpha_content, text=char, width=32, height=32, corner_radius=10,
+                               fg_color="transparent", text_color=COLORS['text_primary'],
+                               hover_color=COLORS['bg_card_hover'], font=(FONT_FAMILY, 11, "bold"),
+                               command=lambda c=char: self._filter_by_alpha(c))
+            btn.pack(side="left", padx=1)
+            self.alpha_buttons[char] = btn
+
         # Table - transparent container, tree has its own rounded frame
         table_frame = ctk.CTkFrame(frame, fg_color="transparent")
         table_frame.pack(fill="both", expand=True)
@@ -849,6 +875,22 @@ class ClinicApp(ctk.CTk):
                 patient['address'] or "-",
                 patient['patient_id'] # Hidden field
             ), tags=(tag,))
+
+    def _filter_by_alpha(self, char):
+        """Filter patients by the first letter of their last name"""
+        self.patient_filters['alpha_last_name'] = char
+        
+        # Update button styles
+        self.btn_alpha_all.configure(fg_color=COLORS['accent_blue'] if char is None else "transparent",
+                                    text_color="#ffffff" if char is None else COLORS['text_primary'])
+        
+        for c, btn in self.alpha_buttons.items():
+            if c == char:
+                btn.configure(fg_color=COLORS['accent_blue'], text_color="#ffffff")
+            else:
+                btn.configure(fg_color="transparent", text_color=COLORS['text_primary'])
+        
+        self._search_patients(reset_page=True)
 
     def _patients_prev_page(self):
         """Go to previous page of patients"""

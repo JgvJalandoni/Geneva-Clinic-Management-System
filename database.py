@@ -382,6 +382,10 @@ class ClinicDatabase:
                     if filters.get('registered_end'):
                         base_query += " AND p.registered_date <= ?"
                         params.append(filters['registered_end'] + " 23:59:59")
+                    
+                    if filters.get('alpha_last_name'):
+                        base_query += " AND p.last_name LIKE ?"
+                        params.append(f"{filters['alpha_last_name']}%")
 
                 # Get total count
                 cursor.execute(f"SELECT COUNT(DISTINCT p.patient_id) {base_query}", params)
