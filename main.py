@@ -1598,7 +1598,7 @@ class LoginWindow(ctk.CTk):
 # ADD PATIENT DIALOG - OPTIMIZED WITH CALENDAR PICKER
 # ═══════════════════════════════════════════════════════════════════════════════
 class AddPatientDialog(ctk.CTkToplevel):
-    """High-performance Add Patient dialog with calendar date picker"""
+    """Horizontal Add Patient dialog to eliminate scrolling"""
     
     def __init__(self, parent, db: ClinicDatabase, callback):
         super().__init__(parent)
@@ -1609,7 +1609,7 @@ class AddPatientDialog(ctk.CTkToplevel):
         
         # Window config
         self.title("Add New Patient")
-        self.geometry("850x550") # Shorter initially
+        self.geometry("1150x450") # Wide but short
         self.resizable(False, False)
         self.configure(fg_color=COLORS['bg_dark'])
 
@@ -1624,234 +1624,224 @@ class AddPatientDialog(ctk.CTkToplevel):
         self.update_idletasks()
         sx = self.winfo_screenwidth()
         sy = self.winfo_screenheight()
-        self.geometry(f"850x550+{(sx - 850) // 2}+{(sy - 550) // 2}")
+        self.geometry(f"1150x450+{(sx - 1150) // 2}+{(sy - 450) // 2}")
     
     def _build_ui(self):
-        """Build dialog UI"""
+        """Build dialog UI with horizontal layout"""
         # Header
-        header = ctk.CTkFrame(self, fg_color=COLORS['bg_card'], corner_radius=15, height=80)
-        header.pack(fill="x", padx=20, pady=20)
+        header = ctk.CTkFrame(self, fg_color=COLORS['bg_card'], corner_radius=0, height=60)
+        header.pack(fill="x")
         header.pack_propagate(False)
         
         ctk.CTkLabel(header, text="➕ Add New Patient", 
-                    font=(FONT_FAMILY, 22, "bold"),
+                    font=(FONT_FAMILY, 20, "bold"),
                     text_color=COLORS['text_primary']).pack(expand=True)
         
         # Form container
-        form = ctk.CTkScrollableFrame(self, fg_color=COLORS['bg_card'], corner_radius=15)
-        form.pack(fill="both", expand=True, padx=20, pady=(0, 20))
+        form = ctk.CTkFrame(self, fg_color="transparent")
+        form.pack(fill="both", expand=True, padx=20, pady=20)
         
-        # Form fields
-        self.fields_frame = ctk.CTkFrame(form, fg_color="transparent")
-        self.fields_frame.pack(fill="both", expand=True, padx=30, pady=30)
+        # --- ROW 1: PERSONAL INFORMATION ---
+        core_frame = ctk.CTkFrame(form, fg_color=COLORS['bg_card'], corner_radius=15)
+        core_frame.pack(fill="x", pady=(0, 15))
         
-        # Name section
-        ctk.CTkLabel(self.fields_frame, text="Personal Information", 
-                    font=(FONT_FAMILY, 16, "bold"),
-                    text_color=COLORS['text_primary'],
-                    anchor="w").pack(fill="x", pady=(0, 15))
-        
-        # Last Name
-        ctk.CTkLabel(self.fields_frame, text="Last Name",
-                    font=(FONT_FAMILY, 14),
-                    text_color=COLORS['text_primary'],
-                    anchor="w").pack(fill="x")
-        self.entry_last_name = ctk.CTkEntry(self.fields_frame, height=40, corner_radius=20,
-                                           font=(FONT_FAMILY, 14))
-        self.entry_last_name.pack(fill="x", pady=(5, 15))
+        inner_core = ctk.CTkFrame(core_frame, fg_color="transparent")
+        inner_core.pack(fill="x", padx=20, pady=20)
 
-        # First Name
-        ctk.CTkLabel(self.fields_frame, text="First Name",
-                    font=(FONT_FAMILY, 14),
-                    text_color=COLORS['text_primary'],
-                    anchor="w").pack(fill="x")
-        self.entry_first_name = ctk.CTkEntry(self.fields_frame, height=40, corner_radius=20,
-                                            font=(FONT_FAMILY, 14))
-        self.entry_first_name.pack(fill="x", pady=(5, 15))
+        # Names Row
+        name_row = ctk.CTkFrame(inner_core, fg_color="transparent")
+        name_row.pack(fill="x", pady=(0, 15))
         
-        # Middle Name
-        ctk.CTkLabel(self.fields_frame, text="Middle Name (Optional)", 
-                    font=(FONT_FAMILY, 14),
-                    text_color=COLORS['text_primary'],
-                    anchor="w").pack(fill="x")
-        self.entry_middle_name = ctk.CTkEntry(self.fields_frame, height=40, corner_radius=20,
-                                             font=(FONT_FAMILY, 14))
-        self.entry_middle_name.pack(fill="x", pady=(5, 15))
-        
-        # DOB Section
-        ctk.CTkLabel(self.fields_frame, text="Date of Birth", 
-                    font=(FONT_FAMILY, 14),
-                    text_color=COLORS['text_primary'],
-                    anchor="w").pack(fill="x")
-        
-        dob_input_frame = ctk.CTkFrame(self.fields_frame, fg_color="transparent")
-        dob_input_frame.pack(fill="x", pady=(5, 15))
-        
-        self.entry_dob = ctk.CTkEntry(dob_input_frame, height=40, corner_radius=20,
-                                     placeholder_text="MM/DD/YYYY",
-                                     font=(FONT_FAMILY, 14))
-        self.entry_dob.pack(side="left", fill="x", expand=True, padx=(0, 5))
-        
-        ctk.CTkButton(dob_input_frame, text="📅", width=40, height=40,
-                     command=self._open_calendar,
-                     fg_color=COLORS['accent_blue'], hover_color="#0052a3",
-                     font=(FONT_FAMILY, 18)).pack(side="right")
+        self.entry_last_name = self._add_field(name_row, "Last Name", 0, 0, width=300)
+        self.entry_first_name = self._add_field(name_row, "First Name", 0, 1, width=300)
+        self.entry_middle_name = self._add_field(name_row, "Middle Name (Optional)", 0, 2, width=300)
 
-        # Toggle Details Button
-        self.btn_toggle_details = ctk.CTkButton(self.fields_frame, text="➕ Add more details", 
+        # Details Row
+        det_row = ctk.CTkFrame(inner_core, fg_color="transparent")
+        det_row.pack(fill="x")
+
+        # DOB Col
+        dob_col = ctk.CTkFrame(det_row, fg_color="transparent")
+        dob_col.pack(side="left", padx=(0, 20))
+        ctk.CTkLabel(dob_col, text="Date of Birth", font=(FONT_FAMILY, 12, "bold")).pack(anchor="w")
+        dob_inp = ctk.CTkFrame(dob_col, fg_color="transparent")
+        dob_inp.pack(pady=2)
+        self.entry_dob = ctk.CTkEntry(dob_inp, width=150, height=35, placeholder_text="MM/DD/YYYY")
+        self.entry_dob.pack(side="left", padx=(0, 5))
+        ctk.CTkButton(dob_inp, text="📅", width=35, height=35, command=self._open_calendar, fg_color=COLORS['accent_blue']).pack(side="left")
+
+        # Sex & Status
+        self.sex_var = ctk.StringVar(value="")
+        self.sex_dropdown = self._add_dropdown(det_row, "Sex", ["Male", "Female"], self.sex_var, 150)
+        
+        self.civil_var = ctk.StringVar(value="")
+        self.civil_dropdown = self._add_dropdown(det_row, "Civil Status", ["Single", "Married", "Widowed", "Separated"], self.civil_var, 180)
+
+        # Toggle Button
+        self.btn_toggle_details = ctk.CTkButton(form, text="➕ Add more details (Occupation, School, Family, Contact)", 
                                                command=self._toggle_more_details,
                                                fg_color="transparent", text_color=COLORS['accent_blue'],
                                                hover_color=COLORS['bg_card_hover'],
-                                               font=(FONT_FAMILY, 14, "bold"), height=40)
-        self.btn_toggle_details.pack(fill="x", pady=10)
+                                               font=(FONT_FAMILY, 13, "bold"), height=35)
+        self.btn_toggle_details.pack(fill="x", pady=(0, 10))
 
-        # More Details Container (Hidden by default)
-        self.more_details_frame = ctk.CTkFrame(self.fields_frame, fg_color="transparent")
+        # --- MORE DETAILS (HIDDEN) ---
+        self.more_details_frame = ctk.CTkFrame(form, fg_color=COLORS['bg_card'], corner_radius=15)
+        # Pack later
         
-        # --- CONTENT OF MORE DETAILS ---
-        # Sex and Civil Status Row
-        row1_frame = ctk.CTkFrame(self.more_details_frame, fg_color="transparent")
-        row1_frame.pack(fill="x", pady=(0, 15))
+        inner_more = ctk.CTkFrame(self.more_details_frame, fg_color="transparent")
+        inner_more.pack(fill="both", expand=True, padx=20, pady=20)
 
-        # Sex col
-        sex_col = ctk.CTkFrame(row1_frame, fg_color="transparent")
-        sex_col.pack(side="left", fill="both", expand=True, padx=(0, 10))
+        # Top row: Occ/School
+        row_occ = ctk.CTkFrame(inner_more, fg_color="transparent")
+        row_occ.pack(fill="x", pady=(0, 15))
+        self.entry_occupation = self._add_field(row_occ, "Occupation", 0, 0, 450)
+        self.entry_school = self._add_field(row_occ, "School", 0, 1, 450)
 
-        ctk.CTkLabel(sex_col, text="Sex", 
-                    font=(FONT_FAMILY, 14),
-                    text_color=COLORS['text_primary'],
-                    anchor="w").pack(fill="x")
+        # Split: Family (Left) | Contact (Right)
+        split_row = ctk.CTkFrame(inner_more, fg_color="transparent")
+        split_row.pack(fill="x")
+
+        # Family side
+        fam_side = ctk.CTkFrame(split_row, fg_color="transparent")
+        fam_side.pack(side="left", fill="both", expand=True, padx=(0, 20))
+        ctk.CTkLabel(fam_side, text="FAMILY / CONTACT PERSON", font=(FONT_FAMILY, 11, "bold"), text_color=COLORS['accent_blue']).pack(anchor="w")
+        self.entry_parents = self._add_field(fam_side, "Parents' Names", None, None, 450, pack=True)
+        self.entry_parent_contact = self._add_field(fam_side, "Parent/Guardian Contact", None, None, 450, pack=True)
+
+        # Contact side
+        con_side = ctk.CTkFrame(split_row, fg_color="transparent")
+        con_side.pack(side="left", fill="both", expand=True)
+        ctk.CTkLabel(con_side, text="PATIENT CONTACT DETAILS", font=(FONT_FAMILY, 11, "bold"), text_color=COLORS['accent_blue']).pack(anchor="w")
+        self.entry_contact = self._add_field(con_side, "Personal Contact Number", None, None, 450, pack=True)
         
-        self.sex_var = ctk.StringVar(value="")
-        self.sex_dropdown = ctk.CTkComboBox(sex_col, values=["Male", "Female"],
-                                           variable=self.sex_var, height=40, corner_radius=20,
-                                           font=(FONT_FAMILY, 14))
-        self.sex_dropdown.pack(fill="x", pady=(5, 0))
+        # Textboxes
+        ctk.CTkLabel(con_side, text="Address", font=(FONT_FAMILY, 12, "bold")).pack(anchor="w", pady=(10, 0))
+        self.entry_address = ctk.CTkTextbox(con_side, height=60, font=(FONT_FAMILY, 13), border_width=1, border_color=COLORS['border'])
+        self.entry_address.pack(fill="x", pady=2)
 
-        # Civil Status col
-        civil_col = ctk.CTkFrame(row1_frame, fg_color="transparent")
-        civil_col.pack(side="left", fill="both", expand=True)
-
-        ctk.CTkLabel(civil_col, text="Civil Status", 
-                    font=(FONT_FAMILY, 14),
-                    text_color=COLORS['text_primary'],
-                    anchor="w").pack(fill="x")
-        
-        self.civil_var = ctk.StringVar(value="")
-        self.civil_dropdown = ctk.CTkComboBox(civil_col, values=["Single", "Married", "Widowed", "Separated"],
-                                             variable=self.civil_var, height=40, corner_radius=20,
-                                             font=(FONT_FAMILY, 14))
-        self.civil_dropdown.pack(fill="x", pady=(5, 0))
-
-        # Occupation
-        ctk.CTkLabel(self.more_details_frame, text="Occupation", 
-                    font=(FONT_FAMILY, 14),
-                    text_color=COLORS['text_primary'],
-                    anchor="w").pack(fill="x")
-        self.entry_occupation = ctk.CTkEntry(self.more_details_frame, height=40, corner_radius=20,
-                                            font=(FONT_FAMILY, 14))
-        self.entry_occupation.pack(fill="x", pady=(5, 15))
-
-        # School
-        ctk.CTkLabel(self.more_details_frame, text="School", 
-                    font=(FONT_FAMILY, 14),
-                    text_color=COLORS['text_primary'],
-                    anchor="w").pack(fill="x")
-        self.entry_school = ctk.CTkEntry(self.more_details_frame, height=40, corner_radius=20,
-                                        font=(FONT_FAMILY, 14))
-        self.entry_school.pack(fill="x", pady=(5, 15))
-
-        # Parents section
-        ctk.CTkLabel(self.more_details_frame, text="Family / Contact Person", 
-                    font=(FONT_FAMILY, 16, "bold"),
-                    text_color=COLORS['text_primary'],
-                    anchor="w").pack(fill="x", pady=(10, 15))
-
-        # Parents
-        ctk.CTkLabel(self.more_details_frame, text="Parents' Names", 
-                    font=(FONT_FAMILY, 14),
-                    text_color=COLORS['text_primary'],
-                    anchor="w").pack(fill="x")
-        self.entry_parents = ctk.CTkEntry(self.more_details_frame, height=40, corner_radius=20,
-                                         font=(FONT_FAMILY, 14))
-        self.entry_parents.pack(fill="x", pady=(5, 15))
-
-        # Parent Contact
-        ctk.CTkLabel(self.more_details_frame, text="Parent/Guardian Contact Number", 
-                    font=(FONT_FAMILY, 14),
-                    text_color=COLORS['text_primary'],
-                    anchor="w").pack(fill="x")
-        self.entry_parent_contact = ctk.CTkEntry(self.more_details_frame, height=40, corner_radius=20,
-                                                font=(FONT_FAMILY, 14))
-        self.entry_parent_contact.pack(fill="x", pady=(5, 15))
-        
-        # Contact Information
-        ctk.CTkLabel(self.more_details_frame, text="Patient Contact Details", 
-                    font=(FONT_FAMILY, 16, "bold"),
-                    text_color=COLORS['text_primary'],
-                    anchor="w").pack(fill="x", pady=(10, 15))
-        
-        # Contact Number
-        ctk.CTkLabel(self.more_details_frame, text="Contact Number", 
-                    font=(FONT_FAMILY, 14),
-                    text_color=COLORS['text_primary'],
-                    anchor="w").pack(fill="x")
-        self.entry_contact = ctk.CTkEntry(self.more_details_frame, height=40, corner_radius=20,
-                                         placeholder_text="09123456789",
-                                         font=(FONT_FAMILY, 14))
-        self.entry_contact.pack(fill="x", pady=(5, 15))
-        
-        # Address
-        ctk.CTkLabel(self.more_details_frame, text="Address", 
-                    font=(FONT_FAMILY, 14),
-                    text_color=COLORS['text_primary'],
-                    anchor="w").pack(fill="x")
-        self.entry_address = ctk.CTkTextbox(self.more_details_frame, height=80, corner_radius=20,
-                                           font=(FONT_FAMILY, 14))
-        self.entry_address.pack(fill="x", pady=(5, 15))
-        
-        # Notes
-        ctk.CTkLabel(self.more_details_frame, text="Additional Notes", 
-                    font=(FONT_FAMILY, 14),
-                    text_color=COLORS['text_primary'],
-                    anchor="w").pack(fill="x")
-        self.entry_notes = ctk.CTkTextbox(self.more_details_frame, height=80, corner_radius=20,
-                                         font=(FONT_FAMILY, 14))
-        self.entry_notes.pack(fill="x", pady=(5, 20))
-        # --- END OF MORE DETAILS ---
+        ctk.CTkLabel(inner_more, text="Additional Notes", font=(FONT_FAMILY, 12, "bold")).pack(anchor="w", pady=(10, 0))
+        self.entry_notes = ctk.CTkTextbox(inner_more, height=60, font=(FONT_FAMILY, 13), border_width=1, border_color=COLORS['border'])
+        self.entry_notes.pack(fill="x", pady=2)
 
         # Buttons (Always at bottom)
-        self.button_frame = ctk.CTkFrame(self.fields_frame, fg_color="transparent")
-        self.button_frame.pack(fill="x")
+        self.button_frame = ctk.CTkFrame(form, fg_color="transparent")
+        self.button_frame.pack(fill="x", side="bottom")
         
         ctk.CTkButton(self.button_frame, text="Cancel", command=self.destroy,
-                     fg_color=COLORS['text_muted'], hover_color=COLORS['text_secondary'],
-                     height=44, corner_radius=20,
-                     font=(FONT_FAMILY, 13, "bold")).pack(side="left", fill="x", expand=True, padx=(0, 10))
+                     fg_color=COLORS['text_muted'], height=45, corner_radius=20,
+                     font=(FONT_FAMILY, 14, "bold")).pack(side="left", fill="x", expand=True, padx=(0, 10))
 
-        ctk.CTkButton(self.button_frame, text="Add Patient", command=self._save_patient,
-                     fg_color=COLORS['accent_green'], hover_color="#16a34a",
-                     height=44, corner_radius=20,
-                     font=(FONT_FAMILY, 13, "bold")).pack(side="right", fill="x", expand=True)
+        ctk.CTkButton(self.button_frame, text="✓ Add Patient", command=self._save_patient,
+                     fg_color=COLORS['accent_green'], height=45, corner_radius=20,
+                     font=(FONT_FAMILY, 14, "bold")).pack(side="right", fill="x", expand=True)
         
-        # Focus first field
         self.entry_last_name.focus()
 
+    def _add_field(self, parent, label, row, col, width, pack=False):
+        f = ctk.CTkFrame(parent, fg_color="transparent")
+        if pack: f.pack(fill="x", pady=2)
+        else: f.pack(side="left", padx=(0, 15))
+        ctk.CTkLabel(f, text=label, font=(FONT_FAMILY, 12, "bold")).pack(anchor="w")
+        e = ctk.CTkEntry(f, width=width, height=35)
+        e.pack(pady=2)
+        return e
+
+    def _add_dropdown(self, parent, label, values, var, width):
+        f = ctk.CTkFrame(parent, fg_color="transparent")
+        f.pack(side="left", padx=(0, 15))
+        ctk.CTkLabel(f, text=label, font=(FONT_FAMILY, 12, "bold")).pack(anchor="w")
+        d = ctk.CTkComboBox(f, values=values, variable=var, width=width, height=35)
+        d.pack(pady=2)
+        return d
+
     def _toggle_more_details(self):
-        """Toggle optional fields visibility"""
+        """Toggle optional fields visibility with smooth resizing"""
         self.show_more_details = not self.show_more_details
         if self.show_more_details:
-            # Re-pack in correct order
             self.button_frame.pack_forget()
-            self.more_details_frame.pack(fill="x")
-            self.button_frame.pack(fill="x")
-            
+            self.more_details_frame.pack(fill="x", pady=(0, 15))
+            self.button_frame.pack(fill="x", side="bottom")
             self.btn_toggle_details.configure(text="➖ Hide details")
-            self.geometry("850x850")
+            self.geometry("1150x880")
         else:
             self.more_details_frame.pack_forget()
-            self.btn_toggle_details.configure(text="➕ Add more details")
-            self.geometry("850x550")
+            self.btn_toggle_details.configure(text="➕ Add more details (Occupation, School, Family, Contact)")
+            self.geometry("1150x450")
+    
+    def _open_calendar(self):
+        """Open calendar picker dialog"""
+        CalendarDialog(self, self._on_date_selected)
+    
+    def _on_date_selected(self, date_str: str):
+        """Callback when date is selected from calendar"""
+        self.entry_dob.delete(0, "end")
+        self.entry_dob.insert(0, date_str)
+    
+    def _save_patient(self):
+        """Save patient to database - all fields optional"""
+        # Get all fields - none required
+        last_name = self.entry_last_name.get().strip() or "Unknown"
+        first_name = self.entry_first_name.get().strip() or "Unknown"
+        middle_name = self.entry_middle_name.get().strip()
+        dob_ui = self.entry_dob.get().strip()
+        sex = self.sex_var.get().strip()
+        civil_status = self.civil_var.get().strip()
+        occupation = self.entry_occupation.get().strip()
+        school = self.entry_school.get().strip()
+        parents = self.entry_parents.get().strip()
+        parent_contact = self.entry_parent_contact.get().strip()
+        contact = self.entry_contact.get().strip()
+        address = self.entry_address.get("1.0", "end-1c").strip()
+        notes = self.entry_notes.get("1.0", "end-1c").strip()
+
+        from utils import ui_date_to_db, validate_date, validate_contact_number
+
+        # Validate DOB format if provided
+        dob = None
+        if dob_ui:
+            is_valid, err = validate_date(dob_ui)
+            if not is_valid:
+                messagebox.showerror("Validation Error", err, parent=self)
+                return
+            dob = ui_date_to_db(dob_ui)
+
+        # Validate contact numbers
+        if contact:
+            is_valid, err = validate_contact_number(contact)
+            if not is_valid:
+                messagebox.showerror("Validation Error", f"Patient contact: {err}", parent=self)
+                return
+
+        if parent_contact:
+            is_valid, err = validate_contact_number(parent_contact)
+            if not is_valid:
+                messagebox.showerror("Validation Error", f"Parent contact: {err}", parent=self)
+                return
+
+        # Add to database
+        patient_id = self.db.add_patient(
+            last_name=last_name,
+            first_name=first_name,
+            middle_name=middle_name,
+            dob=dob,
+            sex=sex,
+            civil_status=civil_status,
+            occupation=occupation,
+            parents=parents,
+            parent_contact=parent_contact,
+            school=school,
+            contact=contact,
+            address=address,
+            notes=notes
+        )
+
+        if patient_id:
+            self.callback(patient_id)
+            self.destroy()
+        else:
+            messagebox.showerror("Error", "Failed to add patient!", parent=self)
+
     
     def _open_calendar(self):
         """Open calendar picker dialog"""

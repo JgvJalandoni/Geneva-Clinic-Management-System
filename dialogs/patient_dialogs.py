@@ -11,18 +11,13 @@ from utils import validate_patient_name, validate_contact_number
 
 
 class NewPatientDialog(BaseDialog):
-    """Dialog for creating new patient"""
+    """Horizontal New Patient dialog to eliminate scrolling"""
     
     def __init__(self, parent, db, callback):
         """
         Initialize new patient dialog
-        
-        Args:
-            parent: Parent window
-            db: ClinicDatabase instance
-            callback: Function to call after patient creation (receives patient_id)
         """
-        super().__init__(parent, "➕ New Patient Registration", 850, 550) # Shorter initially
+        super().__init__(parent, "➕ New Patient Registration", 1150, 450) # Wide but short
         
         self.db = db
         self.callback = callback
@@ -32,90 +27,113 @@ class NewPatientDialog(BaseDialog):
         self.build_ui()
     
     def build_ui(self):
-        """Build the dialog UI"""
+        """Build the dialog UI with horizontal layout"""
         # Header
         self.create_header("➕", "New Patient Registration", 
-                          color=COLORS['accent_blue'], height=80)
+                          color=COLORS['accent_blue'], height=60)
         
-        # Scrollable Form
-        self.form_container = ctk.CTkScrollableFrame(self, fg_color="transparent")
-        self.form_container.pack(fill="both", expand=True, padx=20, pady=20)
+        # Form Container
+        container = ctk.CTkFrame(self, fg_color="transparent")
+        container.pack(fill="both", expand=True, padx=20, pady=20)
         
-        # Form Fields
-        self.entry_last_name = self.create_form_field(
-            self.form_container, "Last Name *", "e.g., Dela Cruz")
-        self.entry_first_name = self.create_form_field(
-            self.form_container, "First Name *", "e.g., Juan")
-        self.entry_middle_name = self.create_form_field(
-            self.form_container, "Middle Name", "e.g., Santos")
-        self.entry_dob = self.create_form_field(
-            self.form_container, "Date of Birth", "MM/DD/YYYY (optional)")
+        # --- ROW 1: PERSONAL INFORMATION ---
+        core_frame = ctk.CTkFrame(container, fg_color=COLORS['bg_card'], corner_radius=15)
+        core_frame.pack(fill="x", pady=(0, 15))
+        
+        inner_core = ctk.CTkFrame(core_frame, fg_color="transparent")
+        inner_core.pack(fill="x", padx=20, pady=20)
 
-        # Toggle Details Button
-        self.btn_toggle_details = ctk.CTkButton(self.form_container, text="➕ Add more details", 
+        # Name Row
+        name_row = ctk.CTkFrame(inner_core, fg_color="transparent")
+        name_row.pack(fill="x", pady=(0, 15))
+        
+        self.entry_last_name = self._add_field(name_row, "Last Name *", 300)
+        self.entry_first_name = self._add_field(name_row, "First Name *", 300)
+        self.entry_middle_name = self._add_field(name_row, "Middle Name", 300)
+
+        # DOB & Basic Row
+        det_row = ctk.CTkFrame(inner_core, fg_color="transparent")
+        det_row.pack(fill="x")
+
+        self.entry_dob = self._add_field(det_row, "Date of Birth (MM/DD/YYYY)", 250)
+        self.entry_sex = self._add_field(det_row, "Sex", 200)
+        
+        # Toggle Button
+        self.btn_toggle_details = ctk.CTkButton(container, text="➕ Add more details (Occupation, School, Family, Contact)", 
                                                command=self.toggle_more_details,
                                                fg_color="transparent", text_color=COLORS['accent_blue'],
                                                hover_color=COLORS['bg_card_hover'],
-                                               font=(FONT_FAMILY, 14, "bold"), height=40)
-        self.btn_toggle_details.pack(fill="x", pady=10)
+                                               font=(FONT_FAMILY, 13, "bold"), height=35)
+        self.btn_toggle_details.pack(fill="x", pady=(0, 10))
 
-        # More Details Container (Hidden by default)
-        self.more_details_frame = ctk.CTkFrame(self.form_container, fg_color="transparent")
+        # --- MORE DETAILS (HIDDEN) ---
+        self.more_details_frame = ctk.CTkFrame(container, fg_color=COLORS['bg_card'], corner_radius=15)
         
-        self.entry_sex = self.create_form_field(
-            self.more_details_frame, "Sex", "Male/Female")
-        self.entry_occupation = self.create_form_field(
-            self.more_details_frame, "Occupation", "")
-        self.entry_school = self.create_form_field(
-            self.more_details_frame, "School", "")
-        self.entry_parents = self.create_form_field(
-            self.more_details_frame, "Parents", "")
-        self.entry_parent_contact = self.create_form_field(
-            self.more_details_frame, "Parent Contact", "")
-        self.entry_address = self.create_form_field(
-            self.more_details_frame, "Address", "e.g., 123 Main St, Quezon City")
-        self.entry_contact = self.create_form_field(
-            self.more_details_frame, "Contact Number", "e.g., 09123456789")
-        
-        # Patient Notes
-        ctk.CTkLabel(self.more_details_frame, text="Patient Notes",
-                    font=(FONT_FAMILY, 14),
-                    text_color=COLORS['text_secondary']).pack(anchor="w", pady=(10, 5))
-        self.txt_notes = ctk.CTkTextbox(self.more_details_frame, height=100,
-                                       fg_color=COLORS['bg_card'],
-                                       border_width=1,
-                                       border_color=COLORS['border'])
-        self.txt_notes.pack(fill="x", pady=(0, 10))
-        
+        inner_more = ctk.CTkFrame(self.more_details_frame, fg_color="transparent")
+        inner_more.pack(fill="both", expand=True, padx=20, pady=20)
+
+        # Occ/School row
+        occ_row = ctk.CTkFrame(inner_more, fg_color="transparent")
+        occ_row.pack(fill="x", pady=(0, 15))
+        self.entry_occupation = self._add_field(occ_row, "Occupation", 450)
+        self.entry_school = self._add_field(occ_row, "School", 450)
+
+        # Family & Contact side-by-side
+        split_row = ctk.CTkFrame(inner_more, fg_color="transparent")
+        split_row.pack(fill="x")
+
+        fam_col = ctk.CTkFrame(split_row, fg_color="transparent")
+        fam_col.pack(side="left", fill="both", expand=True, padx=(0, 20))
+        ctk.CTkLabel(fam_col, text="FAMILY INFORMATION", font=(FONT_FAMILY, 11, "bold"), text_color=COLORS['accent_blue']).pack(anchor="w")
+        self.entry_parents = self._add_field(fam_col, "Parents' Names", 450, pack=True)
+        self.entry_parent_contact = self._add_field(fam_col, "Parent Contact Number", 450, pack=True)
+
+        con_col = ctk.CTkFrame(split_row, fg_color="transparent")
+        con_col.pack(side="left", fill="both", expand=True)
+        ctk.CTkLabel(con_col, text="PATIENT CONTACT", font=(FONT_FAMILY, 11, "bold"), text_color=COLORS['accent_blue']).pack(anchor="w")
+        self.entry_contact = self._add_field(con_col, "Contact Number", 450, pack=True)
+        ctk.CTkLabel(con_col, text="Address", font=(FONT_FAMILY, 12, "bold")).pack(anchor="w", pady=(10, 0))
+        self.entry_address = ctk.CTkTextbox(con_col, height=60, font=(FONT_FAMILY, 13), border_width=1, border_color=COLORS['border'])
+        self.entry_address.pack(fill="x", pady=2)
+
+        ctk.CTkLabel(inner_more, text="Additional Notes", font=(FONT_FAMILY, 12, "bold")).pack(anchor="w", pady=(10, 0))
+        self.txt_notes = ctk.CTkTextbox(inner_more, height=60, font=(FONT_FAMILY, 13), border_width=1, border_color=COLORS['border'])
+        self.txt_notes.pack(fill="x", pady=2)
+
         # Info Box (Always at bottom)
-        self.info_box = self.create_info_box(self.form_container, 
+        self.info_box = self.create_info_box(container, 
                            "Last Name and First Name are required. Other fields are optional.")
         
         # Buttons (Always at bottom)
-        self.button_bar = self.create_button_bar(self.form_container, [
+        self.button_bar = self.create_button_bar(container, [
             {'text': 'Cancel', 'command': self.destroy, 'style': 'secondary', 'side': 'left'},
             {'text': '✓ Create Patient', 'command': self.save_patient, 'style': 'primary', 'side': 'right'}
         ])
+
+    def _add_field(self, parent, label, width, pack=False):
+        f = ctk.CTkFrame(parent, fg_color="transparent")
+        if pack: f.pack(fill="x", pady=2)
+        else: f.pack(side="left", padx=(0, 15))
+        ctk.CTkLabel(f, text=label, font=(FONT_FAMILY, 12, "bold")).pack(anchor="w")
+        e = ctk.CTkEntry(f, width=width, height=35)
+        e.pack(pady=2)
+        return e
 
     def toggle_more_details(self):
         """Toggle optional fields visibility"""
         self.show_more_details = not self.show_more_details
         if self.show_more_details:
-            # Re-pack in correct order
             self.info_box.pack_forget()
             self.button_bar.pack_forget()
-            
-            self.more_details_frame.pack(fill="x")
-            
+            self.more_details_frame.pack(fill="x", pady=(0, 15))
             self.info_box.pack(fill="x", pady=10)
             self.button_bar.pack(fill="x", pady=(15, 0))
-            
             self.btn_toggle_details.configure(text="➖ Hide details")
-            self.geometry("850x850")
+            self.geometry("1150x880")
         else:
             self.more_details_frame.pack_forget()
             self.btn_toggle_details.configure(text="➕ Add more details")
-            self.geometry("850x550")
+            self.geometry("1150x450")
     
     def save_patient(self):
         """Validate and save new patient"""
