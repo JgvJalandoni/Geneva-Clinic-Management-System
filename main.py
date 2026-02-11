@@ -3180,11 +3180,14 @@ class EditVisitDialog(ctk.CTkToplevel):
                      fg_color=COLORS['bg_dark'], text_color=COLORS['text_primary'],
                      width=90, height=35, corner_radius=12, border_width=1, border_color=COLORS['border']).pack(side="left", padx=15)
 
-        # 2. Reference (Non-editable in edit mode)
+        # 2. Reference (Editable)
         ref_sec = ctk.CTkFrame(inner_core, fg_color="transparent")
         ref_sec.pack(side="left", padx=(0, 20))
         ctk.CTkLabel(ref_sec, text="REF #", font=(FONT_FAMILY, 12, "bold"), text_color=COLORS['accent_orange']).pack(anchor="w")
-        ctk.CTkLabel(ref_sec, text=str(self.visit_data['reference_number']), font=(FONT_FAMILY, 18, "bold"), text_color=COLORS['accent_orange']).pack(anchor="w", pady=5)
+        
+        self.entry_ref = ctk.CTkEntry(ref_sec, width=100, height=40, font=(FONT_FAMILY, 18, "bold"), justify="center", text_color=COLORS['accent_orange'])
+        self.entry_ref.pack(pady=2)
+        self.entry_ref.insert(0, str(self.visit_data['reference_number']))
 
         # 3. Date & Time
         dt_sec = ctk.CTkFrame(inner_core, fg_color="transparent")
@@ -3258,6 +3261,20 @@ class EditVisitDialog(ctk.CTkToplevel):
 
     def _save(self):
         from utils import ui_date_to_db, validate_date, parse_time_input, safe_float
+        
+        # 1. Validate Reference Number
+        try:
+            new_ref = int(self.entry_ref.get().strip())
+            # If changed, check availability
+            if new_ref != self.visit_data['reference_number']:
+                if not self.db.is_reference_number_available(new_ref):
+                    messagebox.showerror("Validation Error", f"Reference #{new_ref} is already in use by another record!")
+                    return
+        except ValueError:
+            messagebox.showerror("Validation Error", "Invalid reference number! Please enter digits only.")
+            return
+
+        # 2. Validate Date
         date_ui = self.entry_date.get().strip()
         is_v, err = validate_date(date_ui)
         if not is_v:
@@ -3281,7 +3298,8 @@ class EditVisitDialog(ctk.CTkToplevel):
             height=height,
             bp=self.entry_bp.get().strip(),
             temp=temp,
-            notes=notes
+            notes=notes,
+            reference_number=new_ref
         ):
             messagebox.showinfo("Success", "Visit record updated successfully!")
             self.callback()
