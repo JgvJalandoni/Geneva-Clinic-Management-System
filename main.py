@@ -922,7 +922,9 @@ class ClinicApp(ctk.CTk):
         selection = self.tree_today.selection()
         if selection:
             values = self.tree_today.item(selection[0], "values")
-            reference_number = int(values[0])
+            # Remove dashes from formatted reference number (e.g., '00-01-03' -> 103)
+            raw_ref = values[0].replace("-", "")
+            reference_number = int(raw_ref)
             # Get visit by reference number
             visit = self.db.get_visit_by_reference(reference_number)
             if visit:
@@ -938,7 +940,9 @@ class ClinicApp(ctk.CTk):
         selection = self.tree_overview.selection()
         if selection:
             values = self.tree_overview.item(selection[0], "values")
-            reference_number = int(values[0])
+            # Remove dashes from formatted reference number (e.g., '00-01-03' -> 103)
+            raw_ref = values[0].replace("-", "")
+            reference_number = int(raw_ref)
             # Get visit by reference number
             visit = self.db.get_visit_by_reference(reference_number)
             if visit:
