@@ -4087,7 +4087,7 @@ class PatientVisitLogsDialog(ctk.CTkToplevel):
         # Footer
         footer = ctk.CTkFrame(self, fg_color="transparent", height=70)
         footer.pack(fill="x", side="bottom", padx=20, pady=10)
-        ctk.CTkButton(footer, text="✓ Close", command=self.destroy, fg_color=COLORS['accent_blue'], height=45, corner_radius=15, font=(FONT_FAMILY, 14, "bold")).pack(side="right", width=150)
+        ctk.CTkButton(footer, text="✓ Close", command=self.destroy, fg_color=COLORS['accent_blue'], height=45, width=150, corner_radius=15, font=(FONT_FAMILY, 14, "bold")).pack(side="right")
 
     def _create_tree(self, parent):
         container = ctk.CTkFrame(parent, fg_color=COLORS['bg_card'], corner_radius=20)
@@ -4562,13 +4562,13 @@ class PatientPickerDialog(ctk.CTkToplevel):
         footer.pack(fill="x", side="bottom", padx=20, pady=20)
         
         self.btn_done = ctk.CTkButton(footer, text="Done", command=self._confirm_selection,
-                                     fg_color=COLORS['accent_blue'], height=50, corner_radius=20,
+                                     fg_color=COLORS['accent_blue'], height=50, width=200, corner_radius=20,
                                      font=(FONT_FAMILY, 16, "bold"), state="disabled")
-        self.btn_done.pack(side="right", width=200)
+        self.btn_done.pack(side="right")
         
         ctk.CTkButton(footer, text="Cancel", command=self.destroy,
-                     fg_color=COLORS['text_muted'], height=50, corner_radius=20,
-                     font=(FONT_FAMILY, 16, "bold")).pack(side="right", width=150, padx=10)
+                     fg_color=COLORS['text_muted'], height=50, width=150, corner_radius=20,
+                     font=(FONT_FAMILY, 16, "bold")).pack(side="right", padx=10)
 
     def _create_picker_tree(self, parent):
         container = ctk.CTkFrame(parent, fg_color=COLORS['bg_card'], corner_radius=20)
