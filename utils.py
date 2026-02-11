@@ -169,6 +169,28 @@ def db_date_to_ui(date_str: str) -> str:
         return date_str
 
 
+def format_time_parts(time_24hr: str) -> tuple[str, str, str]:
+    """
+    Split a 24-hour time string into (hour, minute, ampm) for UI pickers.
+    
+    Args:
+        time_24hr: Time in HH:MM:SS format
+        
+    Returns:
+        Tuple of (HH, MM, AM/PM)
+    """
+    if not time_24hr:
+        now = datetime.datetime.now()
+        return now.strftime("%I"), f"{(now.minute // 5) * 5:02d}", now.strftime("%p")
+    
+    try:
+        dt = datetime.datetime.strptime(time_24hr, DATETIME_FORMATS['time_24hr'])
+        return dt.strftime("%I"), dt.strftime("%M"), dt.strftime("%p")
+    except (ValueError, TypeError):
+        now = datetime.datetime.now()
+        return now.strftime("%I"), f"{(now.minute // 5) * 5:02d}", now.strftime("%p")
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # DATA FORMATTING
 # ═══════════════════════════════════════════════════════════════════════════════
