@@ -34,10 +34,11 @@ class ClinicDatabase:
             with self.get_connection() as conn:
                 cursor = conn.cursor()
                 
-                # Patients Table - UPDATED with sex, occupation, parents, school, civil_status
+                # Patients Table - UPDATED with reference_number
                 cursor.execute("""
                     CREATE TABLE IF NOT EXISTS patients (
                         patient_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        reference_number INTEGER,
                         last_name TEXT NOT NULL,
                         first_name TEXT NOT NULL,
                         middle_name TEXT,
@@ -60,6 +61,7 @@ class ClinicDatabase:
                 columns = [column[1] for column in cursor.fetchall()]
                 
                 migrations = [
+                    ("reference_number", "INTEGER"),
                     ("sex", "TEXT"),
                     ("civil_status", "TEXT"),
                     ("occupation", "TEXT"),
@@ -72,7 +74,19 @@ class ClinicDatabase:
                     if col_name not in columns:
                         cursor.execute(f"ALTER TABLE patients ADD COLUMN {col_name} {col_type}")
                 
-                # Visit Logs Table - with reference_number for encoding old records
+                # DATA MIGRATION: Populate patients.reference_number from visit_logs if not already set
+                # We use the earliest reference number assigned to the patient
+                cursor.execute("""
+                    UPDATE patients 
+                    SET reference_number = (
+                        SELECT MIN(reference_number) 
+                        FROM visit_logs 
+                        WHERE visit_logs.patient_id = patients.patient_id
+                    )
+                    WHERE reference_number IS NULL
+                """)
+                
+                # Visit Logs Table - with reference_number (now non-unique per visit, unique per patient)
                 cursor.execute("""
                     CREATE TABLE IF NOT EXISTS visit_logs (
                         visit_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -105,10 +119,13 @@ class ClinicDatabase:
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_patient_first_name ON patients(first_name)")
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_patient_last_name ON patients(last_name)")
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_patient_dob ON patients(date_of_birth)")
+                cursor.execute("CREATE INDEX IF NOT EXISTS idx_patient_ref ON patients(reference_number)")
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_visit_date ON visit_logs(visit_date)")
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_patient_visits ON visit_logs(patient_id)")
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_reference_number ON visit_logs(reference_number)")
-                cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_reference ON visit_logs(reference_number)")
+                
+                # Remove unique index to allow multiple visits with same patient ref
+                cursor.execute("DROP INDEX IF EXISTS idx_unique_reference")
                 
                 conn.commit()
         except sqlite3.Error as e:
@@ -122,9 +139,10 @@ class ClinicDatabase:
     def add_patient(self, last_name: str, first_name: str, middle_name: str = "",
                    dob: str = "", sex: str = "", civil_status: str = "", occupation: str = "", 
                    parents: str = "", parent_contact: str = "", school: str = "",
-                   contact: str = "", address: str = "", notes: str = "") -> Optional[int]:
+                   contact: str = "", address: str = "", notes: str = "",
+                   reference_number: Optional[int] = None) -> Optional[int]:
         """
-        Create new patient record - UPDATED with additional fields
+        Create new patient record - UPDATED with reference_number
         
         Args:
             last_name: Patient's last name (required)
@@ -140,19 +158,24 @@ class ClinicDatabase:
             contact: Patient's contact number (optional)
             address: Patient's address (optional)
             notes: Additional notes (optional)
+            reference_number: Patient ID number (auto-generated if None)
             
         Returns:
             Patient ID if successful, None otherwise
         """
         try:
+            # Auto-generate reference number if not provided
+            if reference_number is None:
+                reference_number = self.get_next_reference_number()
+
             with self.get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute("""
-                    INSERT INTO patients (last_name, first_name, middle_name, date_of_birth, 
+                    INSERT INTO patients (reference_number, last_name, first_name, middle_name, date_of_birth, 
                                         sex, civil_status, occupation, parents, parent_contact, school,
                                         contact_number, address, notes)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (last_name, first_name, middle_name or None, dob or None, 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (reference_number, last_name, first_name, middle_name or None, dob or None, 
                       sex or None, civil_status or None, occupation or None, parents or None, 
                       parent_contact or None, school or None,
                       contact or None, address or None, notes or None))
@@ -165,7 +188,8 @@ class ClinicDatabase:
     def update_patient(self, patient_id: int, last_name: str, first_name: str, middle_name: str = "",
                       dob: str = "", sex: str = "", civil_status: str = "", occupation: str = "", 
                       parents: str = "", parent_contact: str = "", school: str = "",
-                      contact: str = "", address: str = "", notes: str = "") -> bool:
+                      contact: str = "", address: str = "", notes: str = "",
+                      reference_number: Optional[int] = None) -> bool:
         """
         Update existing patient record - UPDATED
         
@@ -184,6 +208,7 @@ class ClinicDatabase:
             contact: Updated contact number
             address: Updated address
             notes: Updated notes
+            reference_number: Updated reference number
             
         Returns:
             True if successful, False otherwise
@@ -191,16 +216,30 @@ class ClinicDatabase:
         try:
             with self.get_connection() as conn:
                 cursor = conn.cursor()
-                cursor.execute("""
-                    UPDATE patients 
-                    SET last_name=?, first_name=?, middle_name=?, date_of_birth=?, 
-                        sex=?, civil_status=?, occupation=?, parents=?, parent_contact=?, school=?,
-                        contact_number=?, address=?, notes=?
-                    WHERE patient_id=?
-                """, (last_name, first_name, middle_name or None, dob or None, 
-                      sex or None, civil_status or None, occupation or None, parents or None, 
-                      parent_contact or None, school or None,
-                      contact or None, address or None, notes or None, patient_id))
+                
+                if reference_number is not None:
+                    cursor.execute("""
+                        UPDATE patients 
+                        SET last_name=?, first_name=?, middle_name=?, date_of_birth=?, 
+                            sex=?, civil_status=?, occupation=?, parents=?, parent_contact=?, school=?,
+                            contact_number=?, address=?, notes=?, reference_number=?
+                        WHERE patient_id=?
+                    """, (last_name, first_name, middle_name or None, dob or None, 
+                          sex or None, civil_status or None, occupation or None, parents or None, 
+                          parent_contact or None, school or None,
+                          contact or None, address or None, notes or None, reference_number, patient_id))
+                else:
+                    cursor.execute("""
+                        UPDATE patients 
+                        SET last_name=?, first_name=?, middle_name=?, date_of_birth=?, 
+                            sex=?, civil_status=?, occupation=?, parents=?, parent_contact=?, school=?,
+                            contact_number=?, address=?, notes=?
+                        WHERE patient_id=?
+                    """, (last_name, first_name, middle_name or None, dob or None, 
+                          sex or None, civil_status or None, occupation or None, parents or None, 
+                          parent_contact or None, school or None,
+                          contact or None, address or None, notes or None, patient_id))
+                
                 conn.commit()
                 return True
         except sqlite3.Error as e:
@@ -229,10 +268,10 @@ class ClinicDatabase:
     
     def search_patients(self, query: str) -> List[Dict]:
         """
-        Search patients by name (first, middle, or last) - OPTIMIZED with indices
+        Search patients by name or reference number - OPTIMIZED
         
         Args:
-            query: Search query string
+            query: Search query string (name or reference number)
             
         Returns:
             List of patient dictionaries matching the query
@@ -240,7 +279,7 @@ class ClinicDatabase:
         try:
             with self.get_connection() as conn:
                 cursor = conn.cursor()
-                if not query or len(query) < 2:
+                if not query or len(query) < 1:
                     # Show recent patients if query too short
                     cursor.execute("""
                         SELECT p.*, MAX(v.visit_date) as last_visit
@@ -251,16 +290,22 @@ class ClinicDatabase:
                         LIMIT 20
                     """)
                 else:
-                    # Search across first, middle, and last name - uses indices
+                    # Clean query for reference number check (remove dashes)
+                    clean_query = query.replace("-", "")
+                    
+                    # Search across name and reference number
                     cursor.execute("""
                         SELECT p.*, MAX(v.visit_date) as last_visit
                         FROM patients p
                         LEFT JOIN visit_logs v ON p.patient_id = v.patient_id
-                        WHERE p.first_name LIKE ? OR p.middle_name LIKE ? OR p.last_name LIKE ?
+                        WHERE p.first_name LIKE ? 
+                           OR p.middle_name LIKE ? 
+                           OR p.last_name LIKE ?
+                           OR CAST(p.reference_number AS TEXT) LIKE ?
                         GROUP BY p.patient_id
                         ORDER BY p.last_name, p.first_name
                         LIMIT 50
-                    """, (f'%{query}%', f'%{query}%', f'%{query}%'))
+                    """, (f'%{query}%', f'%{query}%', f'%{query}%', f'%{clean_query}%'))
                 return [dict(row) for row in cursor.fetchall()]
         except sqlite3.Error:
             return []
@@ -292,9 +337,9 @@ class ClinicDatabase:
                 params = []
                 
                 if query:
-                    base_query += " AND (p.first_name LIKE ? OR p.middle_name LIKE ? OR p.last_name LIKE ?)"
-                    q = f"%{query}%"
-                    params.extend([q, q, q])
+                    clean_query = query.replace("-", "")
+                    base_query += " AND (p.first_name LIKE ? OR p.middle_name LIKE ? OR p.last_name LIKE ? OR CAST(p.reference_number AS TEXT) LIKE ?)"
+                    params.extend([f"%{query}%", f"%{query}%", f"%{query}%", f"%{clean_query}%"])
                 
                 if filters:
                     if filters.get('sex'):
@@ -428,7 +473,7 @@ class ClinicDatabase:
 
     def get_next_reference_number(self) -> int:
         """
-        Get the next available reference number
+        Get the next available reference number - Checks both patients and visit_logs
 
         Returns:
             Next reference number (max + 1, or 1 if no visits exist)
@@ -436,7 +481,14 @@ class ClinicDatabase:
         try:
             with self.get_connection() as conn:
                 cursor = conn.cursor()
-                cursor.execute("SELECT MAX(reference_number) FROM visit_logs")
+                # Get max from both tables to ensure global uniqueness for the next ID
+                cursor.execute("""
+                    SELECT MAX(ref) FROM (
+                        SELECT MAX(reference_number) as ref FROM visit_logs
+                        UNION
+                        SELECT MAX(reference_number) as ref FROM patients
+                    )
+                """)
                 result = cursor.fetchone()[0]
                 return (result or 0) + 1
         except sqlite3.Error:
@@ -445,6 +497,7 @@ class ClinicDatabase:
     def is_reference_number_available(self, ref_num: int) -> bool:
         """
         Check if a reference number is available (not already used)
+        NOTE: Reference numbers are now patient-based.
 
         Args:
             ref_num: Reference number to check
@@ -455,7 +508,12 @@ class ClinicDatabase:
         try:
             with self.get_connection() as conn:
                 cursor = conn.cursor()
-                cursor.execute("SELECT 1 FROM visit_logs WHERE reference_number = ?", (ref_num,))
+                # Check both tables
+                cursor.execute("""
+                    SELECT 1 FROM visit_logs WHERE reference_number = ?
+                    UNION
+                    SELECT 1 FROM patients WHERE reference_number = ?
+                """, (ref_num, ref_num))
                 return cursor.fetchone() is None
         except sqlite3.Error:
             return False
@@ -465,7 +523,7 @@ class ClinicDatabase:
                  bp: str = "", temp: Optional[float] = None, notes: str = "",
                  reference_number: Optional[int] = None) -> Optional[int]:
         """
-        Create new visit record
+        Create new visit record - Uses patient's reference number
 
         Args:
             patient_id: ID of the patient
@@ -476,18 +534,27 @@ class ClinicDatabase:
             bp: Blood pressure reading (optional)
             temp: Temperature in celsius (optional)
             notes: Medical notes (optional)
-            reference_number: Custom reference number (auto-generated if None)
+            reference_number: Custom reference number (defaults to patient's ref)
 
         Returns:
             Visit ID if successful, None otherwise
         """
         try:
-            # Auto-generate reference number if not provided
-            if reference_number is None:
-                reference_number = self.get_next_reference_number()
-
             with self.get_connection() as conn:
                 cursor = conn.cursor()
+                
+                # Get patient's reference number if not provided
+                if reference_number is None:
+                    cursor.execute("SELECT reference_number FROM patients WHERE patient_id = ?", (patient_id,))
+                    row = cursor.fetchone()
+                    if row and row[0]:
+                        reference_number = row[0]
+                    else:
+                        # Fallback to next available if patient doesn't have one
+                        reference_number = self.get_next_reference_number()
+                        # Also update patient's record with this new reference number
+                        cursor.execute("UPDATE patients SET reference_number = ? WHERE patient_id = ?", (reference_number, patient_id))
+
                 cursor.execute("""
                     INSERT INTO visit_logs
                     (patient_id, reference_number, visit_date, visit_time, weight_kg, height_cm,
@@ -629,7 +696,7 @@ class ClinicDatabase:
         Args:
             page: Page number (1-indexed)
             per_page: Records per page
-            query: Search string for patient name
+            query: Search string for patient name or reference number
             start_date: YYYY-MM-DD
             end_date: YYYY-MM-DD
 
@@ -644,9 +711,9 @@ class ClinicDatabase:
                 params = []
                 
                 if query:
-                    query_cond += " AND (p.first_name LIKE ? OR p.middle_name LIKE ? OR p.last_name LIKE ?)"
-                    q = f"%{query}%"
-                    params.extend([q, q, q])
+                    clean_query = query.replace("-", "")
+                    query_cond += " AND (p.first_name LIKE ? OR p.middle_name LIKE ? OR p.last_name LIKE ? OR CAST(p.reference_number AS TEXT) LIKE ?)"
+                    params.extend([f"%{query}%", f"%{query}%", f"%{query}%", f"%{clean_query}%"])
                 
                 if start_date:
                     query_cond += " AND v.visit_date >= ?"
@@ -664,10 +731,11 @@ class ClinicDatabase:
                 """, params)
                 total = cursor.fetchone()[0]
 
-                # Get paginated results
+                # Get paginated results - prioritized p.reference_number
                 offset = (page - 1) * per_page
                 cursor.execute(f"""
-                    SELECT v.visit_id, v.reference_number, v.visit_date, v.visit_time, v.weight_kg, v.height_cm,
+                    SELECT v.visit_id, COALESCE(p.reference_number, v.reference_number) as reference_number, 
+                           v.visit_date, v.visit_time, v.weight_kg, v.height_cm,
                            v.blood_pressure, v.temperature_celsius, v.medical_notes, v.created_at,
                            p.patient_id, p.first_name, p.middle_name, p.last_name,
                            (p.last_name || ', ' || p.first_name ||
@@ -680,6 +748,7 @@ class ClinicDatabase:
                 """, params + [per_page, offset])
                 
                 visits = [dict(row) for row in cursor.fetchall()]
+                return visits, total
                 return visits, total
         except sqlite3.Error as e:
             print(f"Paginated visits error: {e}")

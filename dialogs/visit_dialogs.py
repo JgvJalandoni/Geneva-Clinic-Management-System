@@ -143,8 +143,9 @@ class QuickVisitSearchDialog(BaseDialog):
         name_label.bind("<Button-1>", lambda e: self.select_patient(patient))
         
         # Info row
-        from utils import format_phone_number
-        info_parts = [f"ID: {patient['patient_id']}"]
+        from utils import format_phone_number, format_reference_number
+        ref_num = format_reference_number(patient.get('reference_number'))
+        info_parts = [f"ID: {ref_num}"]
         if patient.get('contact_number'):
             info_parts.append(f"📞 {format_phone_number(patient['contact_number'])}")
         if patient.get('last_visit'):
@@ -176,7 +177,8 @@ class QuickVisitSearchDialog(BaseDialog):
         """Patient selected - proceed to visit form"""
         self.destroy()
         full_name = f"{patient['last_name']}, {patient['first_name']}"
-        self.callback(patient['patient_id'], full_name)
+        # Pass patient_id, full_name, AND reference_number
+        self.callback(patient['patient_id'], full_name, patient.get('reference_number'))
     
     def create_new_patient(self):
         """Open new patient dialog"""
@@ -189,7 +191,7 @@ class QuickVisitSearchDialog(BaseDialog):
 class QuickVisitFormDialog(BaseDialog):
     """Step 2: Quick visit entry form - Optimized Horizontal Layout"""
     
-    def __init__(self, parent, db, patient_id: int, patient_name: str, callback):
+    def __init__(self, parent, db, patient_id: int, patient_name: str, reference_number: int, callback):
         """
         Initialize visit form dialog
         """
@@ -198,15 +200,19 @@ class QuickVisitFormDialog(BaseDialog):
         self.db = db
         self.patient_id = patient_id
         self.patient_name = patient_name
+        self.reference_number = reference_number
         self.callback = callback
         
         self.build_ui()
     
     def build_ui(self):
         """Build the dialog UI"""
+        from utils import format_reference_number
+        formatted_ref = format_reference_number(self.reference_number)
+        
         # Header - Slimmer
         self.create_header("📋", "Quick Visit Entry",
-                          f"Patient: {self.patient_name} (ID: {self.patient_id})",
+                          f"Patient: {self.patient_name} (ID: {formatted_ref})",
                           color=COLORS['accent_green'], height=80)
         
         # Form Container (No scroll if possible)
@@ -223,14 +229,17 @@ class QuickVisitFormDialog(BaseDialog):
         # Ref
         ref_f = ctk.CTkFrame(inner_core, fg_color="transparent")
         ref_f.pack(side="left", padx=(0, 20))
-        ctk.CTkLabel(ref_f, text="REFERENCE #", font=(FONT_FAMILY, 12, "bold"), text_color=COLORS['accent_orange']).pack(anchor="w")
+        ctk.CTkLabel(ref_f, text="PATIENT ID #", font=(FONT_FAMILY, 12, "bold"), text_color=COLORS['accent_orange']).pack(anchor="w")
         
         ref_row = ctk.CTkFrame(ref_f, fg_color="transparent")
         ref_row.pack()
         
         self.entry_ref = ctk.CTkEntry(ref_row, height=40, width=100, font=(FONT_FAMILY, 16, "bold"), justify="center")
         self.entry_ref.pack(side="left", pady=2)
-        self.entry_ref.insert(0, str(self.db.get_next_reference_number()))
+        
+        # Use existing reference number or get next if new patient
+        current_ref = self.reference_number or self.db.get_next_reference_number()
+        self.entry_ref.insert(0, str(current_ref))
         
         ctk.CTkButton(ref_row, text="📋 History", command=self._view_history,
                      fg_color=COLORS['bg_dark'], text_color=COLORS['text_primary'],
@@ -310,8 +319,8 @@ class QuickVisitFormDialog(BaseDialog):
         """Return to patient search"""
         self.destroy()
         QuickVisitSearchDialog(self.master, self.db,
-                             lambda pid, name: QuickVisitFormDialog(
-                                 self.master, self.db, pid, name, self.callback))
+                             lambda pid, name, ref: QuickVisitFormDialog(
+                                 self.master, self.db, pid, name, ref, self.callback))
     
     def save_visit(self):
         """Validate and save visit"""
@@ -337,12 +346,19 @@ class QuickVisitFormDialog(BaseDialog):
             
         # Reference number
         try:
-            reference_number = int(self.entry_ref.get().strip())
-            if not self.db.is_reference_number_available(reference_number):
-                messagebox.showerror("Validation Error", f"Reference #{reference_number} already exists!", parent=self)
-                return
+            raw_ref = self.entry_ref.get().strip()
+            if not raw_ref:
+                reference_number = self.reference_number
+            else:
+                reference_number = int(raw_ref)
+                
+            # If changed, check if available (only if different from current)
+            if reference_number != self.reference_number:
+                if not self.db.is_reference_number_available(reference_number):
+                    messagebox.showerror("Validation Error", f"Reference #{reference_number} is already assigned to another patient!", parent=self)
+                    return
         except ValueError:
-            messagebox.showerror("Validation Error", "Invalid reference number!", parent=self)
+            messagebox.showerror("Validation Error", "Invalid reference number! Please enter digits only.", parent=self)
             return
         
         # Parse and validate vitals
@@ -402,8 +418,8 @@ Time: {format_time_12hr(visit_time)}"""
             success_dialog.destroy()
             self.callback()
             QuickVisitSearchDialog(self.master, self.db,
-                                 lambda pid, name: QuickVisitFormDialog(
-                                     self.master, self.db, pid, name, self.callback))
+                                 lambda pid, name, ref: QuickVisitFormDialog(
+                                     self.master, self.db, pid, name, ref, self.callback))
         
         def close():
             success_dialog.destroy()

@@ -47,9 +47,13 @@ class NewPatientDialog(BaseDialog):
         name_row = ctk.CTkFrame(inner_core, fg_color="transparent")
         name_row.pack(fill="x", pady=(0, 15))
         
-        self.entry_last_name = self._add_field(name_row, "Last Name *", 300)
-        self.entry_first_name = self._add_field(name_row, "First Name *", 300)
-        self.entry_middle_name = self._add_field(name_row, "Middle Name", 300)
+        # Add Patient ID field
+        self.entry_ref_num = self._add_field(name_row, "Patient ID #", 120)
+        self.entry_ref_num.insert(0, str(self.db.get_next_reference_number()))
+        
+        self.entry_last_name = self._add_field(name_row, "Last Name *", 280)
+        self.entry_first_name = self._add_field(name_row, "First Name *", 280)
+        self.entry_middle_name = self._add_field(name_row, "Middle Name", 220)
 
         # DOB & Basic Row
         det_row = ctk.CTkFrame(inner_core, fg_color="transparent")
@@ -144,6 +148,17 @@ class NewPatientDialog(BaseDialog):
             messagebox.showerror("Validation Error", "Last Name and First Name are required.", parent=self)
             return
         
+        # Patient ID (Reference Number)
+        try:
+            raw_ref = self.entry_ref_num.get().strip()
+            ref_num = int(raw_ref) if raw_ref else None
+            if ref_num and not self.db.is_reference_number_available(ref_num):
+                messagebox.showerror("Validation Error", f"Patient ID #{ref_num} is already taken!", parent=self)
+                return
+        except ValueError:
+            messagebox.showerror("Validation Error", "Patient ID must be a number!", parent=self)
+            return
+
         # Validate contact if provided
         contact = self.entry_contact.get().strip()
         is_valid, warning_msg = validate_contact_number(contact)
@@ -165,13 +180,16 @@ class NewPatientDialog(BaseDialog):
             school=self.entry_school.get().strip(),
             contact=contact,
             address=self.entry_address.get().strip(),
-            notes=self.txt_notes.get("1.0", "end-1c").strip()
+            notes=self.txt_notes.get("1.0", "end-1c").strip(),
+            reference_number=ref_num
         )
         
         if patient_id:
             self.result = patient_id
+            from utils import format_reference_number
+            formatted_ref = format_reference_number(ref_num or patient_id)
             messagebox.showinfo("Success", 
-                              f"✓ Patient created successfully!\n\nPatient ID: {patient_id}", 
+                              f"✓ Patient created successfully!\n\nPatient ID: {formatted_ref}", 
                               parent=self)
             self.callback(patient_id)
             self.destroy()
@@ -214,6 +232,7 @@ class EditPatientDialog(BaseDialog):
         form_container.pack(fill="both", expand=True, padx=20, pady=20)
         
         # Form Fields
+        self.entry_ref_num = self.create_form_field(form_container, "Patient ID #", "")
         self.entry_last_name = self.create_form_field(form_container, "Last Name *", "")
         self.entry_first_name = self.create_form_field(form_container, "First Name *", "")
         self.entry_middle_name = self.create_form_field(form_container, "Middle Name", "")
@@ -247,6 +266,7 @@ class EditPatientDialog(BaseDialog):
         """Load existing patient data"""
         patient = self.db.get_patient(self.patient_id)
         if patient:
+            self.entry_ref_num.insert(0, str(patient['reference_number']) if patient.get('reference_number') else "")
             self.entry_last_name.insert(0, patient['last_name'] or "")
             self.entry_first_name.insert(0, patient['first_name'] or "")
             self.entry_middle_name.insert(0, patient['middle_name'] or "")
@@ -271,6 +291,20 @@ class EditPatientDialog(BaseDialog):
             messagebox.showerror("Validation Error", "Last Name and First Name are required.", parent=self)
             return
         
+        # Patient ID (Reference Number)
+        try:
+            raw_ref = self.entry_ref_num.get().strip()
+            ref_num = int(raw_ref) if raw_ref else None
+            # Only check if changed
+            patient = self.db.get_patient(self.patient_id)
+            if ref_num and ref_num != patient.get('reference_number'):
+                if not self.db.is_reference_number_available(ref_num):
+                    messagebox.showerror("Validation Error", f"Patient ID #{ref_num} is already taken!", parent=self)
+                    return
+        except ValueError:
+            messagebox.showerror("Validation Error", "Patient ID must be a number!", parent=self)
+            return
+
         from utils import ui_date_to_db
         # Update patient
         if self.db.update_patient(
@@ -287,7 +321,8 @@ class EditPatientDialog(BaseDialog):
             school=self.entry_school.get().strip(),
             address=self.entry_address.get().strip(),
             contact=self.entry_contact.get().strip(),
-            notes=self.txt_notes.get("1.0", "end-1c").strip()
+            notes=self.txt_notes.get("1.0", "end-1c").strip(),
+            reference_number=ref_num
         ):
             messagebox.showinfo("Success", "✓ Patient updated successfully!", parent=self)
             self.callback()
@@ -412,7 +447,9 @@ class PatientHistoryDialog(BaseDialog):
             
             # Load stats
             stats = self.db.get_patient_stats(self.patient_id)
-            stats_text = f"ID: {self.patient_id} | Total Visits: {stats.get('total_visits', 0)}"
+            from utils import format_reference_number
+            formatted_ref = format_reference_number(patient.get('reference_number'))
+            stats_text = f"ID: {formatted_ref} | Total Visits: {stats.get('total_visits', 0)}"
             if stats.get('first_visit'):
                 stats_text += f" | First Visit: {stats['first_visit']}"
             if stats.get('last_visit'):

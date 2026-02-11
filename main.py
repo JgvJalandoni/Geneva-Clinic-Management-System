@@ -502,9 +502,9 @@ class ClinicApp(ctk.CTk):
         table_frame.pack(fill="both", expand=True)
 
         self.tree_patients = self._create_optimized_tree(table_frame,
-            ["ID", "Last Name", "First Name", "Middle Name", "Age", "Contact", "Address"])
+            ["Patient ID", "Last Name", "First Name", "Middle Name", "Age", "Contact", "Address"])
 
-        self.tree_patients.column("ID", width=60, anchor="center")
+        self.tree_patients.column("Patient ID", width=100, anchor="center")
         self.tree_patients.column("Last Name", width=150)
         self.tree_patients.column("First Name", width=150)
         self.tree_patients.column("Middle Name", width=120)
@@ -833,20 +833,21 @@ class ClinicApp(ctk.CTk):
             text=f"Page {self.patients_page} of {total_pages}  ({self.patients_total} total)")
 
         # Populate with zebra striping
-        from utils import calculate_age, format_phone_number
+        from utils import calculate_age, format_phone_number, format_reference_number
         for idx, patient in enumerate(patients):
             tag = 'evenrow' if idx % 2 == 0 else 'oddrow'
             # Calculate age from DOB
             age = calculate_age(patient.get('date_of_birth'))
             age_display = str(age) if age is not None else "-"
             self.tree_patients.insert("", "end", values=(
-                patient['patient_id'],
+                format_reference_number(patient['reference_number']),
                 patient['last_name'],
                 patient['first_name'],
                 patient.get('middle_name', '') or "-",
                 age_display,
                 format_phone_number(patient['contact_number']),
-                patient['address'] or "-"
+                patient['address'] or "-",
+                patient['patient_id'] # Hidden field
             ), tags=(tag,))
 
     def _patients_prev_page(self):
@@ -913,7 +914,8 @@ class ClinicApp(ctk.CTk):
         selection = self.tree_patients.selection()
         if selection:
             values = self.tree_patients.item(selection[0], "values")
-            patient_id = int(values[0])
+            # patient_id is now the last value (index 7) to allow showing Ref# in first col
+            patient_id = int(values[7])
             # Launch patient details viewer - O(log n) DB lookup
             PatientDetailsDialog(self, self.db, patient_id)
     
@@ -1131,7 +1133,7 @@ class EditVisitDialog(ctk.CTkToplevel):
         # Reference (Left)
         ref_col = ctk.CTkFrame(inner_top, fg_color="transparent")
         ref_col.pack(side="left", padx=(0, 30))
-        ctk.CTkLabel(ref_col, text="Ref #", font=(FONT_FAMILY, 12, "bold"), text_color=COLORS['accent_blue']).pack(anchor="w")
+        ctk.CTkLabel(ref_col, text="Patient ID #", font=(FONT_FAMILY, 12, "bold"), text_color=COLORS['accent_blue']).pack(anchor="w")
         self.entry_ref = ctk.CTkEntry(ref_col, width=150, height=40, font=(FONT_FAMILY, 16, "bold"), justify="center")
         self.entry_ref.pack(pady=5)
         self.entry_ref.insert(0, str(self.visit_data['reference_number']))
@@ -1656,9 +1658,13 @@ class AddPatientDialog(ctk.CTkToplevel):
         name_row = ctk.CTkFrame(inner_core, fg_color="transparent")
         name_row.pack(fill="x", pady=(0, 15))
         
-        self.entry_last_name = self._add_field(name_row, "Last Name", 0, 0, width=300)
-        self.entry_first_name = self._add_field(name_row, "First Name", 0, 1, width=300)
-        self.entry_middle_name = self._add_field(name_row, "Middle Name (Optional)", 0, 2, width=300)
+        # Add Reference Number field first
+        self.entry_ref_num = self._add_field(name_row, "Patient ID #", 0, 0, width=120)
+        self.entry_ref_num.insert(0, str(self.db.get_next_reference_number()))
+        
+        self.entry_last_name = self._add_field(name_row, "Last Name", 0, 1, width=280)
+        self.entry_first_name = self._add_field(name_row, "First Name", 0, 2, width=280)
+        self.entry_middle_name = self._add_field(name_row, "Middle Name", 0, 3, width=220)
 
         # Details Row
         det_row = ctk.CTkFrame(inner_core, fg_color="transparent")
@@ -1784,10 +1790,22 @@ class AddPatientDialog(ctk.CTkToplevel):
     
     def _save_patient(self):
         """Save patient to database - all fields optional"""
-        # Get all fields - none required
+        # Get all fields
         last_name = self.entry_last_name.get().strip() or "Unknown"
         first_name = self.entry_first_name.get().strip() or "Unknown"
         middle_name = self.entry_middle_name.get().strip()
+        
+        # Reference Number
+        try:
+            raw_ref = self.entry_ref_num.get().strip()
+            ref_num = int(raw_ref) if raw_ref else None
+            if ref_num and not self.db.is_reference_number_available(ref_num):
+                messagebox.showerror("Validation Error", f"Patient ID #{ref_num} is already taken!", parent=self)
+                return
+        except ValueError:
+            messagebox.showerror("Validation Error", "Patient ID must be a number!", parent=self)
+            return
+
         dob_ui = self.entry_dob.get().strip()
         sex = self.sex_var.get().strip()
         civil_status = self.civil_var.get().strip()
@@ -1837,7 +1855,8 @@ class AddPatientDialog(ctk.CTkToplevel):
             school=school,
             contact=contact,
             address=address,
-            notes=notes
+            notes=notes,
+            reference_number=ref_num
         )
 
         if patient_id:
@@ -1987,7 +2006,9 @@ class PatientDetailsDialog(ctk.CTkToplevel):
                     font=(FONT_FAMILY, 24, "bold"),
                     text_color="#ffffff").pack(anchor="w")
         
-        ctk.CTkLabel(header_content, text=f"Patient ID: #{self.patient_id}", 
+        from utils import format_reference_number
+        ref_num = format_reference_number(self.patient_data.get('reference_number'))
+        ctk.CTkLabel(header_content, text=f"Patient ID: #{ref_num}", 
                     font=(FONT_FAMILY, 14),
                     text_color="#ffffff").pack(anchor="w")
 
@@ -2190,6 +2211,16 @@ class EditPatientDialog(ctk.CTkToplevel):
         # Form fields
         fields_frame = ctk.CTkFrame(form, fg_color="transparent")
         fields_frame.pack(fill="both", expand=True, padx=30, pady=30)
+
+        # Reference Number (Patient ID)
+        ctk.CTkLabel(fields_frame, text="Patient ID #",
+                    font=(FONT_FAMILY, 14),
+                    text_color=COLORS['text_primary'],
+                    anchor="w").pack(fill="x")
+        self.entry_ref_num = ctk.CTkEntry(fields_frame, height=40, corner_radius=20,
+                                         font=(FONT_FAMILY, 14))
+        self.entry_ref_num.pack(fill="x", pady=(5, 15))
+        self.entry_ref_num.insert(0, str(self.patient_data.get('reference_number') or ""))
 
         # Name section
         ctk.CTkLabel(fields_frame, text="Personal Information",
@@ -2400,6 +2431,20 @@ class EditPatientDialog(ctk.CTkToplevel):
         last_name = self.entry_last_name.get().strip() or "Unknown"
         first_name = self.entry_first_name.get().strip() or "Unknown"
         middle_name = self.entry_middle_name.get().strip()
+        
+        # Reference Number
+        try:
+            raw_ref = self.entry_ref_num.get().strip()
+            ref_num = int(raw_ref) if raw_ref else None
+            # Only check availability if it changed
+            if ref_num and ref_num != self.patient_data.get('reference_number'):
+                if not self.db.is_reference_number_available(ref_num):
+                    messagebox.showerror("Validation Error", f"Patient ID #{ref_num} is already taken by another patient!", parent=self)
+                    return
+        except ValueError:
+            messagebox.showerror("Validation Error", "Patient ID must be a number!", parent=self)
+            return
+
         dob_ui = self.entry_dob.get().strip()
         sex = self.sex_var.get().strip()
         civil_status = self.civil_var.get().strip()
@@ -2450,7 +2495,8 @@ class EditPatientDialog(ctk.CTkToplevel):
             school=school,
             contact=contact,
             address=address,
-            notes=notes
+            notes=notes,
+            reference_number=ref_num
         )
 
         if success:
@@ -2714,7 +2760,7 @@ class EncodeVisitDialog(ctk.CTkToplevel):
         ctk.CTkLabel(header_content, text="📝 Encode Visit Record",
                     font=(FONT_FAMILY, 24, "bold"),
                     text_color="#ffffff").pack(anchor="w")
-        ctk.CTkLabel(header_content, text="Enter old physical records with custom date and reference number",
+        ctk.CTkLabel(header_content, text="Enter old physical records with custom date and Patient ID",
                     font=(FONT_FAMILY, 14),
                     text_color="#ffffff").pack(anchor="w")
 
@@ -2774,8 +2820,8 @@ class EncodeVisitDialog(ctk.CTkToplevel):
                      height=40, corner_radius=15,
                      font=(FONT_FAMILY, 14, "bold")).pack(fill="x")
 
-        # SECTION 2: Reference Number and Date (CRITICAL FOR ENCODING)
-        ctk.CTkLabel(form_content, text="2. REFERENCE NUMBER & DATE",
+        # SECTION 2: Patient ID and Date (CRITICAL FOR ENCODING)
+        ctk.CTkLabel(form_content, text="2. PATIENT ID & DATE",
                     font=(FONT_FAMILY, 16, "bold"),
                     text_color=COLORS['accent_orange']).pack(anchor="w", pady=(10, 10))
 
@@ -2792,14 +2838,14 @@ class EncodeVisitDialog(ctk.CTkToplevel):
         ref_col = ctk.CTkFrame(ref_row, fg_color="transparent")
         ref_col.pack(side="left", fill="x", expand=True, padx=(0, 10))
 
-        ctk.CTkLabel(ref_col, text="Reference Number",
+        ctk.CTkLabel(ref_col, text="Patient ID #",
                     font=(FONT_FAMILY, 14, "bold"),
                     text_color=COLORS['text_primary']).pack(anchor="w")
         ctk.CTkLabel(ref_col, text="(Auto-generated if left empty)",
                     font=(FONT_FAMILY, 12),
                     text_color=COLORS['text_secondary']).pack(anchor="w")
 
-        self.entry_ref_num = ctk.CTkEntry(ref_col, placeholder_text="Enter reference number",
+        self.entry_ref_num = ctk.CTkEntry(ref_col, placeholder_text="Enter Patient ID",
                                          height=44, font=(FONT_FAMILY, 14))
         self.entry_ref_num.pack(fill="x", pady=(5, 0))
 
@@ -2984,15 +3030,15 @@ class EncodeVisitDialog(ctk.CTkToplevel):
             ref_num = int(ref_str)
             if ref_num < 1:
                 self.lbl_ref_validation.configure(
-                    text="Reference number must be 1 or higher",
+                    text="Patient ID must be 1 or higher",
                     text_color=COLORS['accent_red'])
             elif not self.db.is_reference_number_available(ref_num):
                 self.lbl_ref_validation.configure(
-                    text=f"Reference #{ref_num} already exists!",
+                    text=f"ID #{ref_num} already exists!",
                     text_color=COLORS['accent_red'])
             else:
                 self.lbl_ref_validation.configure(
-                    text=f"Reference #{ref_num} is available",
+                    text=f"ID #{ref_num} is available",
                     text_color=COLORS['accent_green'])
         except ValueError:
             self.lbl_ref_validation.configure(
@@ -3012,6 +3058,7 @@ class EncodeVisitDialog(ctk.CTkToplevel):
         else:
             patients = self.db.get_all_patients()
 
+        from utils import format_reference_number
         for idx, patient in enumerate(patients):
             first = patient.get('first_name', '')
             middle = patient.get('middle_name', '')
@@ -3019,12 +3066,14 @@ class EncodeVisitDialog(ctk.CTkToplevel):
             full_name = f"{last}, {first}" + (f" {middle}" if middle else "")
 
             patient_id = patient['patient_id']
-            self.patient_data[idx] = (patient_id, full_name)
+            ref_num = patient['reference_number']
+            formatted_ref = format_reference_number(ref_num)
+            self.patient_data[idx] = (patient_id, full_name, ref_num)
 
             # Create modern clickable card for each patient
             btn = ctk.CTkButton(
                 self.patient_list_frame,
-                text=f"{full_name}  •  ID: {patient_id}",
+                text=f"{full_name}  •  ID: {formatted_ref}",
                 font=(FONT_FAMILY, 14),
                 fg_color="transparent",
                 hover_color=COLORS['status_info'],
@@ -3032,7 +3081,7 @@ class EncodeVisitDialog(ctk.CTkToplevel):
                 anchor="w",
                 height=40,
                 corner_radius=18,
-                command=lambda pid=patient_id, name=full_name: self._select_patient(pid, name)
+                command=lambda pid=patient_id, name=full_name, ref=ref_num: self._select_patient(pid, name, ref)
             )
             btn.pack(fill="x", pady=2)
             self.patient_buttons.append((btn, patient_id))
@@ -3045,13 +3094,19 @@ class EncodeVisitDialog(ctk.CTkToplevel):
         self.lbl_selected.configure(text="No patient selected",
                                    text_color=COLORS['text_secondary'])
 
-    def _select_patient(self, patient_id, patient_name):
+    def _select_patient(self, patient_id, patient_name, reference_number):
         """Handle patient selection from modern list"""
         self.selected_patient_id = patient_id
         self.selected_patient_name = patient_name
         self.lbl_selected.configure(
             text=f"✓ Selected: {patient_name}",
             text_color=COLORS['accent_green'])
+        
+        # Auto-fill reference number
+        if reference_number:
+            self.entry_ref_num.delete(0, "end")
+            self.entry_ref_num.insert(0, str(reference_number))
+            self._validate_ref_number(None)
 
         # Highlight selected button
         for btn, pid in self.patient_buttons:
@@ -3135,7 +3190,7 @@ class EditVisitDialog(ctk.CTkToplevel):
         # 2. Reference (Editable)
         ref_sec = ctk.CTkFrame(inner_core, fg_color="transparent")
         ref_sec.pack(side="left", padx=(0, 20))
-        ctk.CTkLabel(ref_sec, text="REF #", font=(FONT_FAMILY, 12, "bold"), text_color=COLORS['accent_orange']).pack(anchor="w")
+        ctk.CTkLabel(ref_sec, text="PATIENT ID #", font=(FONT_FAMILY, 12, "bold"), text_color=COLORS['accent_orange']).pack(anchor="w")
         
         self.entry_ref = ctk.CTkEntry(ref_sec, width=100, height=40, font=(FONT_FAMILY, 18, "bold"), justify="center", text_color=COLORS['accent_orange'])
         self.entry_ref.pack(pady=2)
@@ -4008,8 +4063,10 @@ class PatientVisitLogsDialog(ctk.CTkToplevel):
         header.pack(fill="x", padx=20, pady=20)
         header.pack_propagate(False)
         
+        from utils import format_reference_number
+        ref_num = format_reference_number(self.patient_data.get('reference_number'))
         full_name = f"{self.patient_data['last_name']}, {self.patient_data['first_name']}"
-        ctk.CTkLabel(header, text=f"📋 Visit Logs: {full_name} (ID: {self.patient_id})", 
+        ctk.CTkLabel(header, text=f"📋 Visit Logs: {full_name} (ID: {ref_num})", 
                     font=(FONT_FAMILY, 20, "bold"),
                     text_color="#ffffff").pack(expand=True)
 
@@ -4205,7 +4262,7 @@ class OptimizedVisitDialog(ctk.CTkToplevel):
         # 1. Ref & Details
         ref_sec = ctk.CTkFrame(inner_core, fg_color="transparent")
         ref_sec.pack(side="left", padx=(0, 20))
-        ctk.CTkLabel(ref_sec, text="1. REF #", font=(FONT_FAMILY, 12, "bold"), text_color=COLORS['accent_orange']).pack(anchor="w")
+        ctk.CTkLabel(ref_sec, text="1. PATIENT ID #", font=(FONT_FAMILY, 12, "bold"), text_color=COLORS['accent_orange']).pack(anchor="w")
         
         ref_row = ctk.CTkFrame(ref_sec, fg_color="transparent")
         ref_row.pack(fill="x", pady=(2, 0))
@@ -4315,8 +4372,16 @@ class OptimizedVisitDialog(ctk.CTkToplevel):
         def on_pick(p):
             self.selected_patient = p
             full_name = f"{p['last_name']}, {p['first_name']}"
-            self.lbl_selected_patient.configure(text=f"✓ {full_name} (ID: {p['patient_id']})", 
+            from utils import format_reference_number
+            ref_num = format_reference_number(p.get('reference_number'))
+            self.lbl_selected_patient.configure(text=f"✓ {full_name} (ID: {ref_num})", 
                                                text_color=COLORS['accent_green'])
+            
+            # Auto-fill reference number
+            if p.get('reference_number'):
+                self.entry_ref.delete(0, "end")
+                self.entry_ref.insert(0, str(p['reference_number']))
+
             self.btn_view_history.pack(side="left", padx=10)
         PatientPickerDialog(self, self.db, on_pick)
 
@@ -4338,11 +4403,13 @@ class OptimizedVisitDialog(ctk.CTkToplevel):
 
         try:
             ref_num = int(self.entry_ref.get().strip())
-            if not self.db.is_reference_number_available(ref_num):
-                messagebox.showerror("Validation Error", f"Reference #{ref_num} already exists!")
-                return
+            # Only check availability if it's different from patient's current ref
+            if ref_num != self.selected_patient.get('reference_number'):
+                if not self.db.is_reference_number_available(ref_num):
+                    messagebox.showerror("Validation Error", f"Reference #{ref_num} is already assigned to another patient!")
+                    return
         except ValueError:
-            messagebox.showerror("Validation Error", "Invalid reference number!")
+            messagebox.showerror("Validation Error", "Invalid reference number! Please enter digits only.")
             return
 
         from utils import ui_date_to_db, validate_date, parse_time_input, safe_float
@@ -4379,69 +4446,6 @@ class OptimizedVisitDialog(ctk.CTkToplevel):
             self.destroy()
         else:
             messagebox.showerror("Error", "Failed to save visit record.")
-
-    def _open_patient_picker(self):
-        def on_pick(p):
-            self.selected_patient = p
-            full_name = f"{p['last_name']}, {p['first_name']}"
-            self.lbl_selected_patient.configure(text=f"✓ {full_name} (ID: {p['patient_id']})", 
-                                               text_color=COLORS['accent_green'])
-        PatientPickerDialog(self, self.db, on_pick)
-
-    def _open_calendar(self):
-        def on_sel(d):
-            self.entry_date.delete(0, "end")
-            self.entry_date.insert(0, d)
-        CalendarDialog(self, on_sel)
-
-    def _save(self):
-        if not self.selected_patient:
-            messagebox.showerror("Validation Error", "Please select a patient first!")
-            return
-
-        try:
-            ref_num = int(self.entry_ref.get().strip())
-            if not self.db.is_reference_number_available(ref_num):
-                messagebox.showerror("Validation Error", f"Reference #{ref_num} already exists!")
-                return
-        except ValueError:
-            messagebox.showerror("Validation Error", "Invalid reference number!")
-            return
-
-        from utils import ui_date_to_db, validate_date, parse_time_input, safe_float
-        date_ui = self.entry_date.get().strip()
-        is_v, err = validate_date(date_ui)
-        if not is_v:
-            messagebox.showerror("Validation Error", err)
-            return
-        
-        db_date = ui_date_to_db(date_ui)
-        time_str = f"{self.hour_var.get()}:{self.minute_var.get()} {self.ampm_var.get()}"
-        db_time = parse_time_input(time_str) or "00:00:00"
-
-        weight = safe_float(self.entry_weight.get())
-        height = safe_float(self.entry_height.get())
-        bp = self.entry_bp.get().strip()
-        temp = safe_float(self.entry_temp.get())
-        notes = self.entry_notes.get("1.0", "end-1c").strip()
-
-        visit_id = self.db.add_visit(
-            patient_id=self.selected_patient['patient_id'],
-            visit_date=db_date,
-            visit_time=db_time,
-            weight=weight,
-            height=height,
-            bp=bp,
-            temp=temp,
-            notes=notes,
-            reference_number=ref_num
-        )
-
-        if visit_id:
-            self.callback(visit_id)
-            self.destroy()
-        else:
-            messagebox.showerror("Error", "Failed to save visit!")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -4556,10 +4560,10 @@ class PatientPickerDialog(ctk.CTkToplevel):
                        fieldbackground="#ffffff", rowheight=45, font=(FONT_FAMILY, 12))
         style.configure("Picker.Treeview.Heading", background=COLORS['accent_blue'], foreground="#ffffff", font=(FONT_FAMILY, 12, "bold"))
         
-        columns = ["ID", "Name", "Age", "Sex", "Civil Status", "Registered", "Last Visit"]
+        columns = ["Patient ID", "Name", "Age", "Sex", "Civil Status", "Registered", "Last Visit"]
         tree = ttk.Treeview(inner, columns=columns, show="headings", style="Picker.Treeview", selectmode="browse")
         
-        tree.column("ID", width=60, anchor="center")
+        tree.column("Patient ID", width=100, anchor="center")
         tree.column("Name", width=220)
         tree.column("Age", width=60, anchor="center")
         tree.column("Sex", width=80, anchor="center")
@@ -4589,7 +4593,7 @@ class PatientPickerDialog(ctk.CTkToplevel):
         for item in self.tree.get_children():
             self.tree.delete(item)
 
-        from utils import calculate_age, format_date_readable, format_phone_number
+        from utils import calculate_age, format_date_readable, format_phone_number, format_reference_number
         for p in patients:
             age = calculate_age(p.get('date_of_birth'))
             last_v = format_date_readable(p.get('last_visit')) if p.get('last_visit') else "Never"
@@ -4597,13 +4601,14 @@ class PatientPickerDialog(ctk.CTkToplevel):
             full_name = f"{p['last_name']}, {p['first_name']}" + (f" {p['middle_name']}" if p.get('middle_name') else "")
             
             self.tree.insert("", "end", values=(
-                p['patient_id'],
+                format_reference_number(p.get('reference_number')),
                 full_name,
                 age if age is not None else "-",
                 p.get('sex') or "-",
                 p.get('civil_status') or "-",
                 reg_date,
-                last_v
+                last_v,
+                p['patient_id'] # Hidden for selection
             ))
             
         total_pages = max(1, (self.total + self.per_page - 1) // self.per_page)
@@ -4640,7 +4645,8 @@ class PatientPickerDialog(ctk.CTkToplevel):
     def _on_tree_select(self, event):
         sel = self.tree.selection()
         if sel:
-            pid = self.tree.item(sel[0], "values")[0]
+            # patient_id is now at index 7 (hidden)
+            pid = self.tree.item(sel[0], "values")[7]
             self.selected_patient_data = self.db.get_patient(int(pid))
             self.btn_done.configure(state="normal")
         else:
