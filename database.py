@@ -347,7 +347,7 @@ class ClinicDatabase:
                 cursor.execute(f"""
                     SELECT p.*, v.last_visit
                     {base_query}
-                    ORDER BY p.last_name, p.first_name
+                    ORDER BY p.registered_date DESC, p.last_name, p.first_name
                     LIMIT ? OFFSET ?
                 """, params + [per_page, offset])
                 

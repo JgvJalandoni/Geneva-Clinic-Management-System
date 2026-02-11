@@ -187,20 +187,13 @@ class QuickVisitSearchDialog(BaseDialog):
 
 
 class QuickVisitFormDialog(BaseDialog):
-    """Step 2: Quick visit entry form"""
+    """Step 2: Quick visit entry form - Optimized Horizontal Layout"""
     
     def __init__(self, parent, db, patient_id: int, patient_name: str, callback):
         """
         Initialize visit form dialog
-        
-        Args:
-            parent: Parent window
-            db: ClinicDatabase instance
-            patient_id: ID of selected patient
-            patient_name: Name of selected patient
-            callback: Function to call after visit saved
         """
-        super().__init__(parent, f"📋 Quick Visit - {patient_name}", 850, 850)
+        super().__init__(parent, f"📋 Quick Visit - {patient_name}", 1100, 600)
         
         self.db = db
         self.patient_id = patient_id
@@ -211,117 +204,108 @@ class QuickVisitFormDialog(BaseDialog):
     
     def build_ui(self):
         """Build the dialog UI"""
-        # Header
+        # Header - Slimmer
         self.create_header("📋", "Quick Visit Entry",
                           f"Patient: {self.patient_name} (ID: {self.patient_id})",
-                          color=COLORS['accent_green'], height=100)
+                          color=COLORS['accent_green'], height=80)
         
-        # Form
-        form = ctk.CTkScrollableFrame(self, fg_color="transparent")
-        form.pack(fill="both", expand=True, padx=20, pady=20)
+        # Form Container (No scroll if possible)
+        container = ctk.CTkFrame(self, fg_color="transparent")
+        container.pack(fill="both", expand=True, padx=25, pady=20)
         
-        # Date & Time Section
-        datetime_frame = ctk.CTkFrame(form, fg_color=COLORS['bg_card'], corner_radius=10)
-        datetime_frame.pack(fill="x", pady=(0, 15))
+        # --- ROW 1: CORE DATA ---
+        core_frame = ctk.CTkFrame(container, fg_color=COLORS['bg_card'], corner_radius=15)
+        core_frame.pack(fill="x", pady=(0, 15))
         
-        dt_inner = ctk.CTkFrame(datetime_frame, fg_color="transparent")
-        dt_inner.pack(fill="x", padx=15, pady=15)
-        dt_inner.columnconfigure((0, 1), weight=1)
+        inner_core = ctk.CTkFrame(core_frame, fg_color="transparent")
+        inner_core.pack(fill="x", padx=15, pady=15)
         
-        # Reference Number
-        ref_frame = ctk.CTkFrame(dt_inner, fg_color="transparent")
-        ref_frame.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 10))
+        # Ref
+        ref_f = ctk.CTkFrame(inner_core, fg_color="transparent")
+        ref_f.pack(side="left", padx=(0, 20))
+        ctk.CTkLabel(ref_f, text="REFERENCE #", font=(FONT_FAMILY, 12, "bold"), text_color=COLORS['accent_orange']).pack(anchor="w")
         
-        ctk.CTkLabel(ref_frame, text="🔢 Reference Number",
-                    font=(FONT_FAMILY, 14, "bold"),
-                    text_color=COLORS['text_secondary']).pack(anchor="w")
-        self.entry_ref = ctk.CTkEntry(ref_frame, height=44,
-                                     fg_color=COLORS['bg_dark'],
-                                     border_width=1, border_color=COLORS['border'])
+        ref_row = ctk.CTkFrame(ref_f, fg_color="transparent")
+        ref_row.pack()
+        
+        self.entry_ref = ctk.CTkEntry(ref_row, height=40, width=100, font=(FONT_FAMILY, 16, "bold"), justify="center")
+        self.entry_ref.pack(side="left", pady=2)
         self.entry_ref.insert(0, str(self.db.get_next_reference_number()))
-        self.entry_ref.pack(fill="x", pady=(5, 0))
+        
+        ctk.CTkButton(ref_row, text="📋 History", command=self._view_history,
+                     fg_color=COLORS['bg_dark'], text_color=COLORS['text_primary'],
+                     width=90, height=40, corner_radius=12, border_width=1, border_color=COLORS['border']).pack(side="left", padx=10)
 
         # Date
-        date_frame = ctk.CTkFrame(dt_inner, fg_color="transparent")
-        date_frame.grid(row=1, column=0, sticky="ew", padx=(0, 5))
-        
-        ctk.CTkLabel(date_frame, text="📅 Visit Date (MM/DD/YYYY)",
-                    font=(FONT_FAMILY, 14, "bold"),
-                    text_color=COLORS['text_secondary']).pack(anchor="w")
-        self.entry_date = ctk.CTkEntry(date_frame, height=44,
-                                      fg_color=COLORS['bg_dark'],
-                                      border_width=1, border_color=COLORS['border'],
-                                      placeholder_text="MM/DD/YYYY")
+        date_f = ctk.CTkFrame(inner_core, fg_color="transparent")
+        date_f.pack(side="left", padx=(0, 20))
+        ctk.CTkLabel(date_f, text="DATE (MM/DD/YYYY)", font=(FONT_FAMILY, 12, "bold"), text_color=COLORS['accent_blue']).pack(anchor="w")
+        self.entry_date = ctk.CTkEntry(date_f, height=40, width=150)
+        self.entry_date.pack(pady=2)
         from utils import get_current_date
         self.entry_date.insert(0, get_current_date())
-        self.entry_date.pack(fill="x", pady=(5, 0))
-        
+
         # Time
-        time_frame = ctk.CTkFrame(dt_inner, fg_color="transparent")
-        time_frame.grid(row=1, column=1, sticky="ew", padx=(5, 0))
-        
-        ctk.CTkLabel(time_frame, text="🕐 Visit Time",
-                    font=(FONT_FAMILY, 14, "bold"),
-                    text_color=COLORS['text_secondary']).pack(anchor="w")
-        self.entry_time = ctk.CTkEntry(time_frame, height=44,
-                                      fg_color=COLORS['bg_dark'],
-                                      border_width=1, border_color=COLORS['border'],
-                                      placeholder_text="HH:MM AM/PM")
+        time_f = ctk.CTkFrame(inner_core, fg_color="transparent")
+        time_f.pack(side="left", fill="x", expand=True)
+        ctk.CTkLabel(time_f, text="TIME", font=(FONT_FAMILY, 12, "bold"), text_color=COLORS['accent_blue']).pack(anchor="w")
+        self.entry_time = ctk.CTkEntry(time_f, height=40, placeholder_text="HH:MM AM/PM")
+        self.entry_time.pack(fill="x", pady=2)
+        from utils import get_current_time_12hr
         self.entry_time.insert(0, get_current_time_12hr())
-        self.entry_time.pack(fill="x", pady=(5, 0))
+
+        # --- ROW 2: VITALS & NOTES ---
+        details_row = ctk.CTkFrame(container, fg_color="transparent")
+        details_row.pack(fill="both", expand=True)
+
+        # Vitals (Left)
+        v_card = ctk.CTkFrame(details_row, fg_color=COLORS['bg_card'], corner_radius=15)
+        v_card.pack(side="left", fill="y", padx=(0, 15))
         
-        # Vitals Section
-        ctk.CTkLabel(form, text="Vital Signs (Optional)",
-                    font=(FONT_FAMILY, 14, "bold"),
-                    text_color=COLORS['text_primary']).pack(anchor="w", pady=(0, 10))
+        v_inner = ctk.CTkFrame(v_card, fg_color="transparent")
+        v_inner.pack(padx=15, pady=15)
         
-        vitals_card = ctk.CTkFrame(form, fg_color=COLORS['bg_card'], corner_radius=10)
-        vitals_card.pack(fill="x", pady=(0, 15))
+        ctk.CTkLabel(v_inner, text="VITALS", font=(FONT_FAMILY, 12, "bold"), text_color=COLORS['text_secondary']).pack(anchor="w", pady=(0, 10))
+        v_grid = ctk.CTkFrame(v_inner, fg_color="transparent")
+        v_grid.pack()
         
-        grid = ctk.CTkFrame(vitals_card, fg_color="transparent")
-        grid.pack(fill="x", padx=15, pady=15)
-        grid.columnconfigure((0, 1), weight=1)
+        self.entry_weight = self.create_grid_field(v_grid, "Weight", "65", 0, 0)
+        self.entry_height = self.create_grid_field(v_grid, "Height", "170", 0, 1)
+        self.entry_bp = self.create_grid_field(v_grid, "BP", "120/80", 1, 0)
+        self.entry_temp = self.create_grid_field(v_grid, "Temp", "37", 1, 1)
+
+        # Notes (Right)
+        n_card = ctk.CTkFrame(details_row, fg_color=COLORS['bg_card'], corner_radius=15)
+        n_card.pack(side="left", fill="both", expand=True)
         
-        self.entry_weight = self.create_grid_field(grid, "⚖️ Weight (kg)", "e.g., 65.5", 0, 0)
-        self.entry_height = self.create_grid_field(grid, "📏 Height (cm)", "e.g., 170", 0, 1)
-        self.entry_bp = self.create_grid_field(grid, "🩺 Blood Pressure", "e.g., 120/80", 1, 0)
-        self.entry_temp = self.create_grid_field(grid, "🌡️ Temperature (°C)", "e.g., 37.2", 1, 1)
+        n_inner = ctk.CTkFrame(n_card, fg_color="transparent")
+        n_inner.pack(fill="both", expand=True, padx=15, pady=15)
         
-        # Medical Notes
-        ctk.CTkLabel(form, text="📝 Medical Notes / Diagnosis",
-                    font=(FONT_FAMILY, 14, "bold"),
-                    text_color=COLORS['text_primary']).pack(anchor="w", pady=(0, 10))
-        
-        self.txt_notes = ctk.CTkTextbox(form, height=120,
-                                       fg_color=COLORS['bg_card'],
-                                       border_width=1, border_color=COLORS['border'],
-                                       font=(FONT_FAMILY, 14))
-        self.txt_notes.pack(fill="x", pady=(0, 15))
-        self.txt_notes.focus_set()
-        
-        # Buttons
-        self.create_button_bar(form, [
-            {'text': '← Back', 'command': self.go_back, 
-             'style': 'secondary', 'side': 'left'},
-            {'text': '✓ SAVE VISIT', 'command': self.save_visit, 
-             'style': 'primary', 'side': 'right'}
+        ctk.CTkLabel(n_inner, text="MEDICAL NOTES", font=(FONT_FAMILY, 12, "bold"), text_color=COLORS['text_secondary']).pack(anchor="w")
+        self.txt_notes = ctk.CTkTextbox(n_inner, font=(FONT_FAMILY, 14), border_width=1, border_color=COLORS['border'])
+        self.txt_notes.pack(fill="both", expand=True, pady=(5, 0))
+
+        # --- BUTTONS ---
+        self.create_button_bar(container, [
+            {'text': '← Back', 'command': self.go_back, 'style': 'secondary', 'side': 'left'},
+            {'text': '✓ SAVE VISIT', 'command': self.save_visit, 'style': 'primary', 'side': 'right'}
         ])
     
-    def create_grid_field(self, parent, label: str, placeholder: str, 
-                         row: int, col: int) -> ctk.CTkEntry:
-        """Create a grid form field"""
-        frame = ctk.CTkFrame(parent, fg_color="transparent")
-        frame.grid(row=row, column=col, sticky="ew", padx=5, pady=5)
-        
-        ctk.CTkLabel(frame, text=label,
-                    font=(FONT_FAMILY, 14, "bold"),
-                    text_color=COLORS['text_secondary']).pack(anchor="w")
-        entry = ctk.CTkEntry(frame, height=44, placeholder_text=placeholder,
-                           fg_color=COLORS['bg_dark'],
-                           border_width=1, border_color=COLORS['border'])
-        entry.pack(fill="x", pady=(3, 0))
-        return entry
+    def create_grid_field(self, parent, label, placeholder, row, col):
+        f = ctk.CTkFrame(parent, fg_color="transparent")
+        f.grid(row=row, column=col, padx=5, pady=5)
+        ctk.CTkLabel(f, text=label, font=(FONT_FAMILY, 10, "bold")).pack(anchor="w")
+        e = ctk.CTkEntry(f, width=100, height=35, placeholder_text=placeholder)
+        e.pack()
+        return e
     
+    def _view_history(self):
+        """Open visit logs for selected patient"""
+        from main import PatientVisitLogsDialog
+        # Mock patient data for the dialog
+        p_data = {'patient_id': self.patient_id, 'last_name': self.patient_name.split(',')[0], 'first_name': self.patient_name.split(',')[-1].strip()}
+        PatientVisitLogsDialog(self, self.db, self.patient_id, p_data)
+
     def go_back(self):
         """Return to patient search"""
         self.destroy()
