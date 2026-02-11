@@ -1857,115 +1857,67 @@ class AddPatientDialog(ctk.CTkToplevel):
         self.entry_dob.insert(0, date_str)
     
     def _save_patient(self):
-        """Save patient to database - all fields optional"""
-        # Get all fields - none required
-        last_name = self.entry_last_name.get().strip() or "Unknown"
-        first_name = self.entry_first_name.get().strip() or "Unknown"
-        middle_name = self.entry_middle_name.get().strip()
-        dob_ui = self.entry_dob.get().strip()
-        sex = self.sex_var.get().strip()
-        civil_status = self.civil_var.get().strip()
-        occupation = self.entry_occupation.get().strip()
-        school = self.entry_school.get().strip()
-        parents = self.entry_parents.get().strip()
-        parent_contact = self.entry_parent_contact.get().strip()
-        contact = self.entry_contact.get().strip()
-        address = self.entry_address.get("1.0", "end-1c").strip()
-        notes = self.entry_notes.get("1.0", "end-1c").strip()
+        """Save patient to database with safe widget data capture"""
+        try:
+            # CAPTURE DATA FIRST: Get all values before any potential destruction or validation failures
+            data = {
+                'last_name': self.entry_last_name.get().strip() or "Unknown",
+                'first_name': self.entry_first_name.get().strip() or "Unknown",
+                'middle_name': self.entry_middle_name.get().strip(),
+                'dob_ui': self.entry_dob.get().strip(),
+                'sex': self.sex_var.get().strip(),
+                'civil_status': self.civil_var.get().strip(),
+                'occupation': self.entry_occupation.get().strip(),
+                'school': self.entry_school.get().strip(),
+                'parents': self.entry_parents.get().strip(),
+                'parent_contact': self.entry_parent_contact.get().strip(),
+                'contact': self.entry_contact.get().strip(),
+                'address': self.entry_address.get("1.0", "end-1c").strip(),
+                'notes': self.entry_notes.get("1.0", "end-1c").strip()
+            }
+        except (RuntimeError, Exception) as e:
+            # If the window was closed while this function started, gracefully exit
+            return
 
         from utils import ui_date_to_db, validate_date, validate_contact_number
 
         # Validate DOB format if provided
         dob = None
-        if dob_ui:
-            is_valid, err = validate_date(dob_ui)
+        if data['dob_ui']:
+            is_valid, err = validate_date(data['dob_ui'])
             if not is_valid:
                 messagebox.showerror("Validation Error", err, parent=self)
                 return
-            dob = ui_date_to_db(dob_ui)
+            dob = ui_date_to_db(data['dob_ui'])
 
         # Validate contact numbers
-        if contact:
-            is_valid, err = validate_contact_number(contact)
+        if data['contact']:
+            is_valid, err = validate_contact_number(data['contact'])
             if not is_valid:
                 messagebox.showerror("Validation Error", f"Patient contact: {err}", parent=self)
                 return
 
-        if parent_contact:
-            is_valid, err = validate_contact_number(parent_contact)
+        if data['parent_contact']:
+            is_valid, err = validate_contact_number(data['parent_contact'])
             if not is_valid:
                 messagebox.showerror("Validation Error", f"Parent contact: {err}", parent=self)
                 return
 
         # Add to database
         patient_id = self.db.add_patient(
-            last_name=last_name,
-            first_name=first_name,
-            middle_name=middle_name,
+            last_name=data['last_name'],
+            first_name=data['first_name'],
+            middle_name=data['middle_name'],
             dob=dob,
-            sex=sex,
-            civil_status=civil_status,
-            occupation=occupation,
-            parents=parents,
-            parent_contact=parent_contact,
-            school=school,
-            contact=contact,
-            address=address,
-            notes=notes
-        )
-
-        if patient_id:
-            self.callback(patient_id)
-            self.destroy()
-        else:
-            messagebox.showerror("Error", "Failed to add patient!", parent=self)
-        occupation = self.entry_occupation.get().strip()
-        school = self.entry_school.get().strip()
-        parents = self.entry_parents.get().strip()
-        parent_contact = self.entry_parent_contact.get().strip()
-        contact = self.entry_contact.get().strip()
-        address = self.entry_address.get("1.0", "end-1c").strip()
-        notes = self.entry_notes.get("1.0", "end-1c").strip()
-
-        from utils import ui_date_to_db, validate_date, validate_contact_number
-
-        # Validate DOB format if provided
-        dob = None
-        if dob_ui:
-            is_valid, err = validate_date(dob_ui)
-            if not is_valid:
-                messagebox.showerror("Validation Error", err, parent=self)
-                return
-            dob = ui_date_to_db(dob_ui)
-
-        # Validate contact numbers
-        if contact:
-            is_valid, err = validate_contact_number(contact)
-            if not is_valid:
-                messagebox.showerror("Validation Error", f"Patient contact: {err}", parent=self)
-                return
-
-        if parent_contact:
-            is_valid, err = validate_contact_number(parent_contact)
-            if not is_valid:
-                messagebox.showerror("Validation Error", f"Parent contact: {err}", parent=self)
-                return
-
-        # Add to database
-        patient_id = self.db.add_patient(
-            last_name=last_name,
-            first_name=first_name,
-            middle_name=middle_name,
-            dob=dob,
-            sex=sex,
-            civil_status=civil_status,
-            occupation=occupation,
-            parents=parents,
-            parent_contact=parent_contact,
-            school=school,
-            contact=contact,
-            address=address,
-            notes=notes
+            sex=data['sex'],
+            civil_status=data['civil_status'],
+            occupation=data['occupation'],
+            parents=data['parents'],
+            parent_contact=data['parent_contact'],
+            school=data['school'],
+            contact=data['contact'],
+            address=data['address'],
+            notes=data['notes']
         )
 
         if patient_id:
