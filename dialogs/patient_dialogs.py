@@ -149,12 +149,20 @@ class NewPatientDialog(BaseDialog):
             return
         
         # Patient ID (Reference Number)
+        existing_patient_id = None
         try:
             raw_ref = self.entry_ref_num.get().strip()
             ref_num = int(raw_ref) if raw_ref else None
-            if ref_num and not self.db.is_reference_number_available(ref_num):
-                messagebox.showerror("Validation Error", f"Patient ID #{ref_num} is already taken!", parent=self)
-                return
+            if ref_num:
+                existing = self.db.get_patient_by_reference(ref_num)
+                if existing:
+                    full_name = f"{existing['last_name']}, {existing['first_name']}"
+                    if messagebox.askyesno("Patient ID Taken", 
+                        f"Patient ID #{ref_num} is already taken by:\n\n{full_name}\n\nWould you like to OVERWRITE this patient's information?", 
+                        parent=self):
+                        existing_patient_id = existing['patient_id']
+                    else:
+                        return
         except ValueError:
             messagebox.showerror("Validation Error", "Patient ID must be a number!", parent=self)
             return
@@ -167,22 +175,41 @@ class NewPatientDialog(BaseDialog):
                 f"{warning_msg}\n\nSave anyway?", parent=self):
                 return
         
-        # Create patient
-        patient_id = self.db.add_patient(
-            last_name=last_name,
-            first_name=first_name,
-            middle_name=self.entry_middle_name.get().strip(),
-            dob=self.entry_dob.get().strip(),
-            sex=self.entry_sex.get().strip(),
-            occupation=self.entry_occupation.get().strip(),
-            parents=self.entry_parents.get().strip(),
-            parent_contact=self.entry_parent_contact.get().strip(),
-            school=self.entry_school.get().strip(),
-            contact=contact,
-            address=self.entry_address.get().strip(),
-            notes=self.txt_notes.get("1.0", "end-1c").strip(),
-            reference_number=ref_num
-        )
+        # Create or update patient
+        if existing_patient_id:
+            success = self.db.update_patient(
+                patient_id=existing_patient_id,
+                last_name=last_name,
+                first_name=first_name,
+                middle_name=self.entry_middle_name.get().strip(),
+                dob=self.entry_dob.get().strip(),
+                sex=self.entry_sex.get().strip(),
+                occupation=self.entry_occupation.get().strip(),
+                parents=self.entry_parents.get().strip(),
+                parent_contact=self.entry_parent_contact.get().strip(),
+                school=self.entry_school.get().strip(),
+                contact=contact,
+                address=self.entry_address.get().strip(),
+                notes=self.txt_notes.get("1.0", "end-1c").strip(),
+                reference_number=ref_num
+            )
+            patient_id = existing_patient_id if success else None
+        else:
+            patient_id = self.db.add_patient(
+                last_name=last_name,
+                first_name=first_name,
+                middle_name=self.entry_middle_name.get().strip(),
+                dob=self.entry_dob.get().strip(),
+                sex=self.entry_sex.get().strip(),
+                occupation=self.entry_occupation.get().strip(),
+                parents=self.entry_parents.get().strip(),
+                parent_contact=self.entry_parent_contact.get().strip(),
+                school=self.entry_school.get().strip(),
+                contact=contact,
+                address=self.entry_address.get().strip(),
+                notes=self.txt_notes.get("1.0", "end-1c").strip(),
+                reference_number=ref_num
+            )
         
         if patient_id:
             self.result = patient_id

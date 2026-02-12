@@ -1838,12 +1838,20 @@ class AddPatientDialog(ctk.CTkToplevel):
         middle_name = self.entry_middle_name.get().strip()
         
         # Reference Number
+        existing_patient_id = None
         try:
             raw_ref = self.entry_ref_num.get().strip()
             ref_num = int(raw_ref) if raw_ref else None
-            if ref_num and not self.db.is_reference_number_available(ref_num):
-                messagebox.showerror("Validation Error", f"Patient ID #{ref_num} is already taken!", parent=self)
-                return
+            if ref_num:
+                existing = self.db.get_patient_by_reference(ref_num)
+                if existing:
+                    full_name = f"{existing['last_name']}, {existing['first_name']}"
+                    if messagebox.askyesno("Patient ID Taken", 
+                        f"Patient ID #{ref_num} is already taken by:\n\n{full_name}\n\nWould you like to OVERWRITE this patient's information?", 
+                        parent=self):
+                        existing_patient_id = existing['patient_id']
+                    else:
+                        return
         except ValueError:
             messagebox.showerror("Validation Error", "Patient ID must be a number!", parent=self)
             return
@@ -1883,23 +1891,43 @@ class AddPatientDialog(ctk.CTkToplevel):
                 messagebox.showerror("Validation Error", f"Parent contact: {err}", parent=self)
                 return
 
-        # Add to database
-        patient_id = self.db.add_patient(
-            last_name=last_name,
-            first_name=first_name,
-            middle_name=middle_name,
-            dob=dob,
-            sex=sex,
-            civil_status=civil_status,
-            occupation=occupation,
-            parents=parents,
-            parent_contact=parent_contact,
-            school=school,
-            contact=contact,
-            address=address,
-            notes=notes,
-            reference_number=ref_num
-        )
+        # Add or update database
+        if existing_patient_id:
+            success = self.db.update_patient(
+                patient_id=existing_patient_id,
+                last_name=last_name,
+                first_name=first_name,
+                middle_name=middle_name,
+                dob=dob,
+                sex=sex,
+                civil_status=civil_status,
+                occupation=occupation,
+                parents=parents,
+                parent_contact=parent_contact,
+                school=school,
+                contact=contact,
+                address=address,
+                notes=notes,
+                reference_number=ref_num
+            )
+            patient_id = existing_patient_id if success else None
+        else:
+            patient_id = self.db.add_patient(
+                last_name=last_name,
+                first_name=first_name,
+                middle_name=middle_name,
+                dob=dob,
+                sex=sex,
+                civil_status=civil_status,
+                occupation=occupation,
+                parents=parents,
+                parent_contact=parent_contact,
+                school=school,
+                contact=contact,
+                address=address,
+                notes=notes,
+                reference_number=ref_num
+            )
 
         if patient_id:
             self.callback(patient_id)

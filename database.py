@@ -265,6 +265,26 @@ class ClinicDatabase:
         except sqlite3.Error as e:
             print(f"Error fetching patient: {e}")
             return None
+
+    def get_patient_by_reference(self, reference_number: int) -> Optional[Dict]:
+        """
+        Get single patient by their reference number (Patient ID)
+        
+        Args:
+            reference_number: The patient ID to look up
+            
+        Returns:
+            Dictionary with patient data or None if not found
+        """
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT * FROM patients WHERE reference_number = ?", (reference_number,))
+                row = cursor.fetchone()
+                return dict(row) if row else None
+        except sqlite3.Error as e:
+            print(f"Error fetching patient by reference: {e}")
+            return None
     
     def search_patients(self, query: str) -> List[Dict]:
         """
