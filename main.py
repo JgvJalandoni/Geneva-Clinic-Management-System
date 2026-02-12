@@ -1843,21 +1843,33 @@ class AddPatientDialog(ctk.CTkToplevel):
         first_name = self.entry_first_name.get().strip() or "Unknown"
         middle_name = self.entry_middle_name.get().strip()
         
-        # Reference Number
+        # Reference Number / ID Conflict Check
         existing_patient_id = None
         try:
             raw_ref = self.entry_ref_num.get().strip()
             ref_num = int(raw_ref) if raw_ref else None
+            
             if ref_num:
-                existing = self.db.get_patient_by_reference(ref_num)
-                if existing:
-                    full_name = f"{existing['last_name']}, {existing['first_name']}"
-                    if messagebox.askyesno("Patient ID Taken", 
-                        f"Patient ID #{ref_num} is already taken by:\n\n{full_name}\n\nWould you like to OVERWRITE this patient's information?", 
-                        parent=self):
-                        existing_patient_id = existing['patient_id']
+                # Check if ID is taken anywhere (Patient or Visit)
+                if not self.db.is_reference_number_available(ref_num):
+                    existing = self.db.get_patient_by_reference(ref_num)
+                    if existing:
+                        full_name = f"{existing['last_name']}, {existing['first_name']}"
+                        if messagebox.askyesno("Patient ID Taken", 
+                            f"Patient ID #{ref_num} is already taken by:\n\n{full_name}\n\nWould you like to OVERWRITE this patient's information?", 
+                            parent=self):
+                            existing_patient_id = existing['patient_id']
+                        else:
+                            return # Cancel save if they said No
                     else:
-                        return
+                        # ID is taken by a visit log but no patient record exists (Ghost/Dangling)
+                        if messagebox.askyesno("ID Taken by Visit Logs",
+                            f"Patient ID #{ref_num} is assigned to existing visit logs, but no patient profile exists.\n\nWould you like to ADOPT this ID for the new patient?",
+                            parent=self):
+                            # We just proceed with this ID, add_patient will handle it
+                            pass
+                        else:
+                            return
         except ValueError:
             messagebox.showerror("Validation Error", "Patient ID must be a number!", parent=self)
             return
@@ -2508,22 +2520,30 @@ class EditPatientDialog(ctk.CTkToplevel):
         first_name = self.entry_first_name.get().strip() or "Unknown"
         middle_name = self.entry_middle_name.get().strip()
         
-        # Reference Number
+        # Reference Number / ID Conflict Check
         existing_patient_id = None
         try:
             raw_ref = self.entry_ref_num.get().strip()
             ref_num = int(raw_ref) if raw_ref else None
-            # Only check availability if it changed
+            
+            # Only check if ID changed
             if ref_num and ref_num != self.patient_data.get('reference_number'):
-                existing = self.db.get_patient_by_reference(ref_num)
-                if existing:
-                    full_name = f"{existing['last_name']}, {existing['first_name']}"
-                    if messagebox.askyesno("Patient ID Taken", 
-                        f"Patient ID #{ref_num} is already taken by:\n\n{full_name}\n\nWould you like to OVERWRITE this patient's information?", 
-                        parent=self):
-                        existing_patient_id = existing['patient_id']
+                if not self.db.is_reference_number_available(ref_num):
+                    existing = self.db.get_patient_by_reference(ref_num)
+                    if existing:
+                        full_name = f"{existing['last_name']}, {existing['first_name']}"
+                        if messagebox.askyesno("Patient ID Taken", 
+                            f"Patient ID #{ref_num} is already taken by:\n\n{full_name}\n\nWould you like to OVERWRITE this patient's information and MERGE your current edit into it?", 
+                            parent=self):
+                            existing_patient_id = existing['patient_id']
+                        else:
+                            return
                     else:
-                        return
+                        # Taken by visit logs but no patient
+                        if not messagebox.askyesno("ID Taken by Visit Logs",
+                            f"Patient ID #{ref_num} is assigned to existing visit logs, but no patient profile exists.\n\nWould you like to REASSIGN this patient to that ID?",
+                            parent=self):
+                            return
         except ValueError:
             messagebox.showerror("Validation Error", "Patient ID must be a number!", parent=self)
             return
@@ -2564,7 +2584,7 @@ class EditPatientDialog(ctk.CTkToplevel):
                 return
 
         # Update database
-        # If we chose to overwrite another patient ID, we use THAT patient's ID
+        # If we chose to overwrite another patient ID, we update THAT patient's record
         target_id = existing_patient_id if existing_patient_id else self.patient_id
         
         success = self.db.update_patient(
@@ -2586,11 +2606,15 @@ class EditPatientDialog(ctk.CTkToplevel):
         )
 
         if success:
-            # If we overwrote a different record, we might want to alert that the current self.patient_id is now redundant?
-            # For now, just finish.
+            # If we overwrote a different record, merge history and delete the original source
+            if existing_patient_id and existing_patient_id != self.patient_id:
+                self.db.merge_patients(self.patient_id, existing_patient_id)
+                messagebox.showinfo("Success", "Patient ID reassigned and records merged successfully!")
+            else:
+                messagebox.showinfo("Success", "Patient details updated successfully!")
+            
             self.callback()
             self.destroy()
-            messagebox.showinfo("Success", "Patient details updated successfully!")
         else:
             messagebox.showerror("Error", "Failed to update patient details!", parent=self)
 

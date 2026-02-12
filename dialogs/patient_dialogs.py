@@ -148,21 +148,32 @@ class NewPatientDialog(BaseDialog):
             messagebox.showerror("Validation Error", "Last Name and First Name are required.", parent=self)
             return
         
-        # Patient ID (Reference Number)
+        # Patient ID (Reference Number) / Conflict Check
         existing_patient_id = None
         try:
             raw_ref = self.entry_ref_num.get().strip()
             ref_num = int(raw_ref) if raw_ref else None
+            
             if ref_num:
-                existing = self.db.get_patient_by_reference(ref_num)
-                if existing:
-                    full_name = f"{existing['last_name']}, {existing['first_name']}"
-                    if messagebox.askyesno("Patient ID Taken", 
-                        f"Patient ID #{ref_num} is already taken by:\n\n{full_name}\n\nWould you like to OVERWRITE this patient's information?", 
-                        parent=self):
-                        existing_patient_id = existing['patient_id']
+                # Check if ID is taken anywhere
+                if not self.db.is_reference_number_available(ref_num):
+                    existing = self.db.get_patient_by_reference(ref_num)
+                    if existing:
+                        full_name = f"{existing['last_name']}, {existing['first_name']}"
+                        if messagebox.askyesno("Patient ID Taken", 
+                            f"Patient ID #{ref_num} is already taken by:\n\n{full_name}\n\nWould you like to OVERWRITE this patient's information?", 
+                            parent=self):
+                            existing_patient_id = existing['patient_id']
+                        else:
+                            return
                     else:
-                        return
+                        # Taken by visits but no patient
+                        if messagebox.askyesno("ID Taken by Visit Logs",
+                            f"Patient ID #{ref_num} is assigned to existing visit logs, but no patient profile exists.\n\nWould you like to ADOPT this ID for the new patient?",
+                            parent=self):
+                            pass
+                        else:
+                            return
         except ValueError:
             messagebox.showerror("Validation Error", "Patient ID must be a number!", parent=self)
             return
@@ -309,39 +320,38 @@ class EditPatientDialog(BaseDialog):
             self.entry_contact.insert(0, patient['contact_number'] or "")
             self.txt_notes.insert("1.0", patient['notes'] or "")
     
-    def update_patient(self):
-        """Validate and update patient"""
-        last_name = self.entry_last_name.get().strip()
-        first_name = self.entry_first_name.get().strip()
-        
-        if not last_name or not first_name:
-            messagebox.showerror("Validation Error", "Last Name and First Name are required.", parent=self)
-            return
-        
-        # Patient ID (Reference Number)
+        # Patient ID (Reference Number) / Conflict Check
         existing_patient_id = None
         try:
             raw_ref = self.entry_ref_num.get().strip()
             ref_num = int(raw_ref) if raw_ref else None
+            
             # Only check if changed
-            patient = self.db.get_patient(self.patient_id)
-            if ref_num and ref_num != patient.get('reference_number'):
-                existing = self.db.get_patient_by_reference(ref_num)
-                if existing:
-                    full_name = f"{existing['last_name']}, {existing['first_name']}"
-                    if messagebox.askyesno("Patient ID Taken", 
-                        f"Patient ID #{ref_num} is already taken by:\n\n{full_name}\n\nWould you like to OVERWRITE this patient's information?", 
-                        parent=self):
-                        existing_patient_id = existing['patient_id']
+            patient_data = self.db.get_patient(self.patient_id)
+            if ref_num and ref_num != patient_data.get('reference_number'):
+                if not self.db.is_reference_number_available(ref_num):
+                    existing = self.db.get_patient_by_reference(ref_num)
+                    if existing:
+                        full_name = f"{existing['last_name']}, {existing['first_name']}"
+                        if messagebox.askyesno("Patient ID Taken", 
+                            f"Patient ID #{ref_num} is already taken by:\n\n{full_name}\n\nWould you like to OVERWRITE this patient's information and MERGE your current edit into it?", 
+                            parent=self):
+                            existing_patient_id = existing['patient_id']
+                        else:
+                            return
                     else:
-                        return
+                        # ID is taken by visits but no patient profile
+                        if not messagebox.askyesno("ID Taken by Visit Logs",
+                            f"Patient ID #{ref_num} is assigned to existing visit logs, but no patient profile exists.\n\nWould you like to REASSIGN this patient to that ID?",
+                            parent=self):
+                            return
         except ValueError:
             messagebox.showerror("Validation Error", "Patient ID must be a number!", parent=self)
             return
 
         from utils import ui_date_to_db
         # Update database
-        # If we chose to overwrite another patient ID, we use THAT patient's ID
+        # If we chose to overwrite another patient ID, we update THAT patient's record
         target_id = existing_patient_id if existing_patient_id else self.patient_id
 
         if self.db.update_patient(
@@ -361,7 +371,13 @@ class EditPatientDialog(BaseDialog):
             notes=self.txt_notes.get("1.0", "end-1c").strip(),
             reference_number=ref_num
         ):
-            messagebox.showinfo("Success", "✓ Patient updated successfully!", parent=self)
+            # Merge and delete if overwrite happened
+            if existing_patient_id and existing_patient_id != self.patient_id:
+                self.db.merge_patients(self.patient_id, existing_patient_id)
+                messagebox.showinfo("Success", "✓ Patient ID reassigned and records merged!", parent=self)
+            else:
+                messagebox.showinfo("Success", "✓ Patient updated successfully!", parent=self)
+            
             self.callback()
             self.destroy()
         else:

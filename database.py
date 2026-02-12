@@ -120,6 +120,10 @@ class ClinicDatabase:
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_patient_last_name ON patients(last_name)")
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_patient_dob ON patients(date_of_birth)")
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_patient_ref ON patients(reference_number)")
+                
+                # UNIQUE index for patients to prevent "ghost" duplicates
+                cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_patient_unique_ref ON patients(reference_number)")
+                
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_visit_date ON visit_logs(visit_date)")
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_patient_visits ON visit_logs(patient_id)")
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_reference_number ON visit_logs(reference_number)")
@@ -285,6 +289,56 @@ class ClinicDatabase:
         except sqlite3.Error as e:
             print(f"Error fetching patient by reference: {e}")
             return None
+
+    def delete_patient(self, patient_id: int) -> bool:
+        """Delete a patient record"""
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("DELETE FROM patients WHERE patient_id = ?", (patient_id,))
+                conn.commit()
+                return cursor.rowcount > 0
+        except sqlite3.Error as e:
+            print(f"Error deleting patient: {e}")
+            return False
+
+    def reassign_visits(self, old_patient_id: int, new_patient_id: int) -> bool:
+        """Move all visit logs from one patient record to another"""
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                # Also update reference_number in visit_logs to match new patient
+                cursor.execute("SELECT reference_number FROM patients WHERE patient_id = ?", (new_patient_id,))
+                row = cursor.fetchone()
+                new_ref = row[0] if row else None
+                
+                if new_ref:
+                    cursor.execute("""
+                        UPDATE visit_logs 
+                        SET patient_id = ?, reference_number = ? 
+                        WHERE patient_id = ?
+                    """, (new_patient_id, new_ref, old_patient_id))
+                else:
+                    cursor.execute("UPDATE visit_logs SET patient_id = ? WHERE patient_id = ?", (new_patient_id, old_patient_id))
+                
+                conn.commit()
+                return True
+        except sqlite3.Error as e:
+            print(f"Error reassigning visits: {e}")
+            return False
+
+    def merge_patients(self, source_patient_id: int, target_patient_id: int) -> bool:
+        """Merge source patient info and history into target patient and delete source"""
+        try:
+            # 1. Reassign all visits first
+            if not self.reassign_visits(source_patient_id, target_patient_id):
+                return False
+            
+            # 2. Delete the source patient record
+            return self.delete_patient(source_patient_id)
+        except Exception as e:
+            print(f"Error merging patients: {e}")
+            return False
     
     def search_patients(self, query: str) -> List[Dict]:
         """
