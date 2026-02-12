@@ -352,11 +352,15 @@ class QuickVisitFormDialog(BaseDialog):
             else:
                 reference_number = int(raw_ref)
                 
-            # If changed, check if available (only if different from current)
+            # If changed, check if it belongs to someone else
             if reference_number != self.reference_number:
-                if not self.db.is_reference_number_available(reference_number):
-                    messagebox.showerror("Validation Error", f"Reference #{reference_number} is already assigned to another patient!", parent=self)
-                    return
+                existing = self.db.get_patient_by_reference(reference_number)
+                if existing:
+                    full_name = f"{existing['last_name']}, {existing['first_name']}"
+                    if not messagebox.askyesno("Patient ID Taken", 
+                        f"Patient ID #{reference_number} is already taken by:\n\n{full_name}\n\nReassign this visit log to this patient?", 
+                        parent=self):
+                        return
         except ValueError:
             messagebox.showerror("Validation Error", "Invalid reference number! Please enter digits only.", parent=self)
             return

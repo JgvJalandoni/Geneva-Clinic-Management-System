@@ -319,23 +319,33 @@ class EditPatientDialog(BaseDialog):
             return
         
         # Patient ID (Reference Number)
+        existing_patient_id = None
         try:
             raw_ref = self.entry_ref_num.get().strip()
             ref_num = int(raw_ref) if raw_ref else None
             # Only check if changed
             patient = self.db.get_patient(self.patient_id)
             if ref_num and ref_num != patient.get('reference_number'):
-                if not self.db.is_reference_number_available(ref_num):
-                    messagebox.showerror("Validation Error", f"Patient ID #{ref_num} is already taken!", parent=self)
-                    return
+                existing = self.db.get_patient_by_reference(ref_num)
+                if existing:
+                    full_name = f"{existing['last_name']}, {existing['first_name']}"
+                    if messagebox.askyesno("Patient ID Taken", 
+                        f"Patient ID #{ref_num} is already taken by:\n\n{full_name}\n\nWould you like to OVERWRITE this patient's information?", 
+                        parent=self):
+                        existing_patient_id = existing['patient_id']
+                    else:
+                        return
         except ValueError:
             messagebox.showerror("Validation Error", "Patient ID must be a number!", parent=self)
             return
 
         from utils import ui_date_to_db
-        # Update patient
+        # Update database
+        # If we chose to overwrite another patient ID, we use THAT patient's ID
+        target_id = existing_patient_id if existing_patient_id else self.patient_id
+
         if self.db.update_patient(
-            patient_id=self.patient_id,
+            patient_id=target_id,
             last_name=last_name,
             first_name=first_name,
             middle_name=self.entry_middle_name.get().strip(),

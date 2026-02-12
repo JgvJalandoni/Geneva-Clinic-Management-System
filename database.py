@@ -858,14 +858,31 @@ class ClinicDatabase:
         try:
             with self.get_connection() as conn:
                 cursor = conn.cursor()
+                
+                # If reference_number is provided, we should check if it belongs to a DIFFERENT patient
+                # and potentially update the patient_id of this visit log.
                 if reference_number is not None:
-                    cursor.execute("""
-                        UPDATE visit_logs
-                        SET reference_number = ?, visit_date = ?, visit_time = ?, weight_kg = ?, height_cm = ?,
-                            blood_pressure = ?, temperature_celsius = ?, medical_notes = ?,
-                            modified_at = CURRENT_TIMESTAMP
-                        WHERE visit_id = ?
-                    """, (reference_number, visit_date, visit_time, weight, height, bp or None, temp, notes or None, visit_id))
+                    cursor.execute("SELECT patient_id FROM patients WHERE reference_number = ?", (reference_number,))
+                    row = cursor.fetchone()
+                    if row:
+                        new_patient_id = row[0]
+                        cursor.execute("""
+                            UPDATE visit_logs
+                            SET patient_id = ?, reference_number = ?, visit_date = ?, visit_time = ?, 
+                                weight_kg = ?, height_cm = ?, blood_pressure = ?, 
+                                temperature_celsius = ?, medical_notes = ?,
+                                modified_at = CURRENT_TIMESTAMP
+                            WHERE visit_id = ?
+                        """, (new_patient_id, reference_number, visit_date, visit_time, weight, height, bp or None, temp, notes or None, visit_id))
+                    else:
+                        # If no patient has this ID, we just update the reference_number
+                        cursor.execute("""
+                            UPDATE visit_logs
+                            SET reference_number = ?, visit_date = ?, visit_time = ?, weight_kg = ?, height_cm = ?,
+                                blood_pressure = ?, temperature_celsius = ?, medical_notes = ?,
+                                modified_at = CURRENT_TIMESTAMP
+                            WHERE visit_id = ?
+                        """, (reference_number, visit_date, visit_time, weight, height, bp or None, temp, notes or None, visit_id))
                 else:
                     cursor.execute("""
                         UPDATE visit_logs
