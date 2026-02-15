@@ -10,10 +10,13 @@ import customtkinter as ctk
 # Cross-platform font family
 if sys.platform.startswith('linux'):
     FONT_FAMILY = "DejaVu Sans"
+    MONO_FAMILY = "DejaVu Sans Mono"
 elif sys.platform == 'darwin':
     FONT_FAMILY = "Helvetica Neue"
+    MONO_FAMILY = "Menlo"
 else:
     FONT_FAMILY = "Segoe UI"
+    MONO_FAMILY = "Consolas"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # APPLICATION SETTINGS
@@ -22,6 +25,14 @@ else:
 # Appearance
 ctk.set_appearance_mode("light")
 ctk.set_default_color_theme("blue")
+
+
+def get_color(key):
+    """Get single color value for current appearance mode (for ttk widgets that don't support tuples)"""
+    val = COLORS[key]
+    if isinstance(val, tuple):
+        return val[1] if ctk.get_appearance_mode() == "Dark" else val[0]
+    return val
 
 # Database
 DB_NAME = "clinic_database.db"
@@ -32,37 +43,44 @@ WINDOW_SIZE = "1400x900"
 WINDOW_MIN_SIZE = (1200, 700)
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# COLOR PALETTE - BRIGHT & EYE-FRIENDLY FOR ACCESSIBILITY
-# Optimized for older users with high contrast and reduced eye strain
+# COLOR PALETTE - WARM & EYE-FRIENDLY FOR ACCESSIBILITY
+# Muted earth-tone accents with warm neutrals for reduced eye strain
 # ═══════════════════════════════════════════════════════════════════════════════
 
 COLORS = {
-    # Backgrounds - Modern clean look
-    'bg_dark': '#f0f4f8',           # Cool light gray (main background)
-    'bg_card': '#ffffff',           # Pure white (cards)
-    'bg_card_hover': '#f8fafc',     # Very light hover
+    # Backgrounds — (light, dark)
+    'bg_dark':        ('#f5f3f0', '#1c1c1e'),
+    'bg_card':        ('#ffffff', '#2c2c2e'),
+    'bg_card_hover':  ('#faf8f6', '#3a3a3c'),
 
-    # Accents - Modern vibrant colors
-    'accent_blue': '#3b82f6',       # Modern blue (primary actions)
-    'accent_green': '#22c55e',      # Fresh green (success/positive)
-    'accent_red': '#ef4444',        # Modern red (warnings/alerts)
-    'accent_orange': '#f97316',     # Warm orange (encoding/special)
-    'accent_purple': '#8b5cf6',     # Soft purple (special items)
+    # Accents — slightly brighter in dark mode for visibility
+    'accent_blue':    ('#4a7ccc', '#6a9fd8'),
+    'accent_green':   ('#3a9e6e', '#5abb8a'),
+    'accent_red':     ('#d94f4f', '#e67373'),
+    'accent_orange':  ('#d98a3d', '#e8a960'),
+    'accent_purple':  ('#7a6bbf', '#9a8dd4'),
 
-    # Text - Clean readable contrast
-    'text_primary': '#1e293b',      # Slate dark (main text)
-    'text_secondary': '#64748b',    # Slate medium (secondary text)
-    'text_muted': '#94a3b8',        # Slate light (hints/placeholders)
+    # Text — inverted for dark mode
+    'text_primary':   ('#2c2c2e', '#e5e5e7'),
+    'text_secondary': ('#6b6b6e', '#a1a1a3'),
+    'text_muted':     ('#a0a0a3', '#6c6c6e'),
 
-    # Borders - Subtle
-    'border': '#e2e8f0',            # Light slate border
-    'border_focus': '#3b82f6',      # Blue border for focused elements
+    # Borders
+    'border':         ('#e5e2de', '#3a3a3c'),
+    'border_focus':   ('#4a7ccc', '#6a9fd8'),
 
-    # Status colors
-    'status_success': '#dcfce7',    # Light green background
-    'status_warning': '#fef3c7',    # Light yellow background
-    'status_danger': '#fee2e2',     # Light red background
-    'status_info': '#dbeafe',       # Light blue background
+    # Status colors — dark tints for dark mode
+    'status_success': ('#e2f5e9', '#1a3328'),
+    'status_warning': ('#fef5e0', '#332a1a'),
+    'status_danger':  ('#fce5e5', '#331a1a'),
+    'status_info':    ('#e4ecf7', '#1a2533'),
+
+    # Hover colors
+    'hover_blue':     ('#3a6ab5', '#5889c0'),
+    'hover_green':    ('#2e8a5c', '#4aa87a'),
+    'hover_red':      ('#bf3f3f', '#d06060'),
+    'hover_orange':   ('#c27530', '#d09050'),
+    'hover_purple':   ('#665aaa', '#8880c0'),
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -82,7 +100,7 @@ FONTS = {
     'tiny': (FONT_FAMILY, 10),
     'button': (FONT_FAMILY, 13, "bold"),
     'button_large': (FONT_FAMILY, 14, "bold"),
-    'mono': ("Consolas", 13),
+    'mono': (MONO_FAMILY, 13),
 }
 
 # Widget Heights

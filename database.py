@@ -1097,6 +1097,127 @@ class ClinicDatabase:
         except Exception as e:
             raise Exception(f"Backup failed: {e}")
     
+    def merge_database(self, source_path: str) -> Dict:
+        """
+        Merge patients and visits from another .db file into the current database.
+        Skips patients with duplicate reference_numbers, merges new visits for existing patients.
+
+        Args:
+            source_path: Path to the .db file to merge from
+
+        Returns:
+            Dict with merge stats: patients_added, visits_added, patients_skipped, errors
+        """
+        stats = {'patients_added': 0, 'visits_added': 0, 'patients_skipped': 0, 'visits_skipped': 0, 'errors': []}
+
+        try:
+            src_conn = sqlite3.connect(source_path)
+            src_conn.row_factory = sqlite3.Row
+            src_cursor = src_conn.cursor()
+
+            # Verify the source DB has the expected tables
+            src_cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
+            tables = [row[0] for row in src_cursor.fetchall()]
+            if 'patients' not in tables:
+                stats['errors'].append("Source database has no 'patients' table")
+                src_conn.close()
+                return stats
+
+            has_visits = 'visit_logs' in tables
+
+            # Build a mapping: source patient_id -> target patient_id
+            patient_id_map = {}
+
+            # Get all patients from source
+            src_cursor.execute("SELECT * FROM patients")
+            src_patients = [dict(row) for row in src_cursor.fetchall()]
+
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+
+                for sp in src_patients:
+                    src_pid = sp['patient_id']
+                    ref_num = sp.get('reference_number')
+
+                    # Check if patient with this reference_number already exists
+                    if ref_num is not None:
+                        cursor.execute("SELECT patient_id FROM patients WHERE reference_number = ?", (ref_num,))
+                        existing = cursor.fetchone()
+                        if existing:
+                            # Patient already exists - map to existing and skip
+                            patient_id_map[src_pid] = existing[0]
+                            stats['patients_skipped'] += 1
+                            continue
+
+                    # Insert new patient (let autoincrement assign new patient_id)
+                    try:
+                        cursor.execute("""
+                            INSERT INTO patients (reference_number, last_name, first_name, middle_name,
+                                date_of_birth, sex, civil_status, occupation, parents, parent_contact,
+                                school, contact_number, address, notes, registered_date)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """, (
+                            ref_num, sp.get('last_name', ''), sp.get('first_name', ''),
+                            sp.get('middle_name'), sp.get('date_of_birth'), sp.get('sex'),
+                            sp.get('civil_status'), sp.get('occupation'), sp.get('parents'),
+                            sp.get('parent_contact'), sp.get('school'), sp.get('contact_number'),
+                            sp.get('address'), sp.get('notes'), sp.get('registered_date')
+                        ))
+                        patient_id_map[src_pid] = cursor.lastrowid
+                        stats['patients_added'] += 1
+                    except sqlite3.IntegrityError as e:
+                        stats['patients_skipped'] += 1
+                        stats['errors'].append(f"Patient ref#{ref_num}: {e}")
+
+                # Merge visits if the source DB has visit_logs
+                if has_visits:
+                    src_cursor.execute("SELECT * FROM visit_logs")
+                    src_visits = [dict(row) for row in src_cursor.fetchall()]
+
+                    for sv in src_visits:
+                        src_pid = sv['patient_id']
+                        target_pid = patient_id_map.get(src_pid)
+
+                        if target_pid is None:
+                            stats['visits_skipped'] += 1
+                            continue
+
+                        # Check for duplicate visit (same patient, same date, same time)
+                        cursor.execute("""
+                            SELECT 1 FROM visit_logs
+                            WHERE patient_id = ? AND visit_date = ? AND visit_time = ?
+                        """, (target_pid, sv.get('visit_date'), sv.get('visit_time')))
+                        if cursor.fetchone():
+                            stats['visits_skipped'] += 1
+                            continue
+
+                        try:
+                            cursor.execute("""
+                                INSERT INTO visit_logs (patient_id, reference_number, visit_date,
+                                    visit_time, weight_kg, height_cm, blood_pressure,
+                                    temperature_celsius, medical_notes, created_at)
+                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            """, (
+                                target_pid, sv.get('reference_number'), sv.get('visit_date'),
+                                sv.get('visit_time'), sv.get('weight_kg'), sv.get('height_cm'),
+                                sv.get('blood_pressure'), sv.get('temperature_celsius'),
+                                sv.get('medical_notes'), sv.get('created_at')
+                            ))
+                            stats['visits_added'] += 1
+                        except sqlite3.Error as e:
+                            stats['visits_skipped'] += 1
+                            stats['errors'].append(f"Visit: {e}")
+
+                conn.commit()
+
+            src_conn.close()
+        except sqlite3.Error as e:
+            stats['errors'].append(f"Database error: {e}")
+        except Exception as e:
+            stats['errors'].append(f"Error: {e}")
+
+        return stats
+
     def export_to_csv(self, filepath: str) -> bool:
         """
         Export all visit data to CSV file - UPDATED

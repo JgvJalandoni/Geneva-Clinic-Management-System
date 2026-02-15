@@ -6,7 +6,7 @@ echo " Created and Designed by Jesbert V. Jalandoni"
 echo "============================================"
 echo
 
-echo "[1/3] Installing dependencies..."
+echo "[1/5] Installing dependencies..."
 pip3 install -r requirements.txt
 if [ $? -ne 0 ]; then
     echo "ERROR: Failed to install dependencies"
@@ -18,7 +18,7 @@ if [ $? -ne 0 ]; then
 fi
 
 echo
-echo "[2/3] Building executable..."
+echo "[2/5] Building executable..."
 pyinstaller GenevaClinic.spec --clean --noconfirm
 if [ $? -ne 0 ]; then
     echo "ERROR: Build failed"
@@ -28,7 +28,38 @@ fi
 chmod +x dist/GenevaClinic
 
 echo
-echo "[3/3] Build complete!"
+echo "[3/5] Creating .desktop launcher..."
+DIST_DIR="$(cd dist && pwd)"
+cat > dist/GenevaClinic.desktop << DESKTOP_EOF
+[Desktop Entry]
+Name=Geneva Clinic
+Comment=Geneva Clinic Management System
+Exec=${DIST_DIR}/GenevaClinic
+Path=${DIST_DIR}
+Terminal=false
+Type=Application
+Categories=Office;MedicalSoftware;
+StartupNotify=true
+X-GNOME-Autostart-enabled=true
+DESKTOP_EOF
+chmod +x dist/GenevaClinic.desktop
+
+echo
+echo "[4/5] Installing launcher & autostart..."
+mkdir -p ~/.local/share/applications
+mkdir -p ~/.config/autostart
+cp dist/GenevaClinic.desktop ~/.local/share/applications/GenevaClinic.desktop
+cp dist/GenevaClinic.desktop ~/.config/autostart/GenevaClinic.desktop
+echo "  -> Installed to app menu (~/.local/share/applications/)"
+echo "  -> Installed to autostart (~/.config/autostart/)"
+
+echo
+echo "[5/5] Build complete!"
 echo
 echo "Executable is at: dist/GenevaClinic"
-echo "Run it with: ./dist/GenevaClinic"
+echo "Geneva Clinic will now launch automatically on login."
+echo
+echo "To disable autostart, run:"
+echo "  rm ~/.config/autostart/GenevaClinic.desktop"
+echo
+echo "Run it manually with: ./dist/GenevaClinic"
