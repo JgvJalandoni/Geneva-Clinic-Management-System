@@ -11,22 +11,36 @@ block_cipher = None
 import customtkinter
 ctk_path = os.path.dirname(customtkinter.__file__)
 
+# Get Pillow path (required by customtkinter)
+try:
+    import PIL
+    pil_path = os.path.dirname(PIL.__file__)
+    pil_data = [(pil_path, 'PIL')]
+except ImportError:
+    pil_data = []
+
 a = Analysis(
     ['main.py'],
     pathex=[],
     binaries=[],
     datas=[
         (ctk_path, 'customtkinter'),
-    ],
+    ] + pil_data,
     hiddenimports=[
         'customtkinter',
         'tkinter',
+        'tkinter.ttk',
+        'tkinter.messagebox',
+        'tkinter.filedialog',
+        '_tkinter',
         'sqlite3',
         'hashlib',
         'csv',
         'shutil',
         'webbrowser',
         'datetime',
+        'PIL',
+        'PIL._tkinter_finder',
     ],
     hookspath=[],
     hooksconfig={},
@@ -51,7 +65,7 @@ exe = EXE(
     upx=True,
     upx_exclude=[],
     runtime_tmpdir=None,
-    console=False,
+    console=False if sys.platform == 'win32' else True,
     disable_windowed_traceback=False,
     argv_emulation=False,
     icon=None,

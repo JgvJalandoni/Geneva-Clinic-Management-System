@@ -74,18 +74,6 @@ class ClinicDatabase:
                     if col_name not in columns:
                         cursor.execute(f"ALTER TABLE patients ADD COLUMN {col_name} {col_type}")
                 
-                # DATA MIGRATION: Populate patients.reference_number from visit_logs if not already set
-                # We use the earliest reference number assigned to the patient
-                cursor.execute("""
-                    UPDATE patients 
-                    SET reference_number = (
-                        SELECT MIN(reference_number) 
-                        FROM visit_logs 
-                        WHERE visit_logs.patient_id = patients.patient_id
-                    )
-                    WHERE reference_number IS NULL
-                """)
-                
                 # Visit Logs Table - with reference_number (now non-unique per visit, unique per patient)
                 cursor.execute("""
                     CREATE TABLE IF NOT EXISTS visit_logs (
@@ -103,6 +91,18 @@ class ClinicDatabase:
                         modified_at TEXT,
                         FOREIGN KEY (patient_id) REFERENCES patients(patient_id) ON DELETE CASCADE
                     )
+                """)
+
+                # DATA MIGRATION: Populate patients.reference_number from visit_logs if not already set
+                # We use the earliest reference number assigned to the patient
+                cursor.execute("""
+                    UPDATE patients
+                    SET reference_number = (
+                        SELECT MIN(reference_number)
+                        FROM visit_logs
+                        WHERE visit_logs.patient_id = patients.patient_id
+                    )
+                    WHERE reference_number IS NULL
                 """)
 
                 # Admin Users Table

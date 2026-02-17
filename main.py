@@ -70,6 +70,8 @@ class ClinicApp(ctk.CTk):
         self.bind("<Escape>", lambda e: self.attributes('-fullscreen', False))
         self.bind("<F11>", lambda e: self.attributes(
             '-fullscreen', not self.attributes('-fullscreen')))
+        self.bind("<n>", lambda e: self._open_new_visit_dialog() if not isinstance(e.widget, (ctk.CTkEntry, ctk.CTkTextbox)) else None)
+        self.bind("<N>", lambda e: self._open_new_visit_dialog() if not isinstance(e.widget, (ctk.CTkEntry, ctk.CTkTextbox)) else None)
 
         # Current view tracking - O(1) state management
         self.current_view = "overview"
@@ -1191,6 +1193,8 @@ class EditVisitDialog(ctk.CTkToplevel):
             self.destroy()
             return
 
+        self.bind("<Return>", lambda e: self._save_visit())
+
         # Window config
         self.title(f"Edit Record #{self.visit_data['reference_number']}")
         self.geometry("1100x850")
@@ -1737,7 +1741,7 @@ class AddPatientDialog(ctk.CTkToplevel):
 
         # Modal
         self.transient(parent)
-        self.after(150, self.grab_set)
+        self.after(150, lambda: (self.grab_set(), self.focus_force()))
 
         # Build UI
         self._build_ui()
@@ -1862,6 +1866,7 @@ class AddPatientDialog(ctk.CTkToplevel):
                      fg_color=COLORS['accent_green'], height=45, corner_radius=14,
                      font=(FONT_FAMILY, 14, "bold")).pack(side="right", fill="x", expand=True)
         
+        self.bind("<Return>", lambda e: self._save_patient())
         self.entry_last_name.focus()
 
     def _add_field(self, parent, label, row, col, width, pack=False):
@@ -2039,6 +2044,7 @@ class AddPatientDialog(ctk.CTkToplevel):
                 'last_name': self.entry_last_name.get().strip() or "Unknown",
                 'first_name': self.entry_first_name.get().strip() or "Unknown",
                 'middle_name': self.entry_middle_name.get().strip(),
+                'raw_ref': self.entry_ref_num.get().strip(),
                 'dob_ui': self.entry_dob.get().strip(),
                 'sex': self.sex_var.get().strip(),
                 'civil_status': self.civil_var.get().strip(),
@@ -2052,6 +2058,13 @@ class AddPatientDialog(ctk.CTkToplevel):
             }
         except (RuntimeError, Exception) as e:
             # If the window was closed while this function started, gracefully exit
+            return
+
+        # Parse reference number
+        try:
+            ref_num = int(data['raw_ref']) if data['raw_ref'] else None
+        except ValueError:
+            messagebox.showerror("Validation Error", "Patient ID must be a number!", parent=self)
             return
 
         from utils import ui_date_to_db, validate_date, validate_contact_number
@@ -2092,7 +2105,8 @@ class AddPatientDialog(ctk.CTkToplevel):
             school=data['school'],
             contact=data['contact'],
             address=data['address'],
-            notes=data['notes']
+            notes=data['notes'],
+            reference_number=ref_num
         )
 
         if patient_id:
@@ -2573,6 +2587,8 @@ class EditPatientDialog(ctk.CTkToplevel):
                      fg_color=COLORS['accent_green'], hover_color=COLORS['hover_green'],
                      height=44, corner_radius=14,
                      font=(FONT_FAMILY, 13, "bold")).pack(side="right", fill="x", expand=True)
+
+        self.bind("<Return>", lambda e: self._save_patient())
 
     def _open_calendar(self):
         """Open calendar picker dialog"""
@@ -3190,6 +3206,8 @@ class EncodeVisitDialog(ctk.CTkToplevel):
                      height=44, corner_radius=14,
                      font=(FONT_FAMILY, 14, "bold")).pack(side="right")
 
+        self.bind("<Return>", lambda e: self._save_visit())
+
         # Load all patients initially
         self._load_patients()
 
@@ -3315,6 +3333,8 @@ class EditVisitDialog(ctk.CTkToplevel):
             messagebox.showerror("Error", "Visit not found!")
             self.destroy()
             return
+
+        self.bind("<Return>", lambda e: self._save())
 
         # Window config
         self.title(f"Edit Record #{self.visit_data['reference_number']}")
@@ -4542,7 +4562,7 @@ class OptimizedVisitDialog(ctk.CTkToplevel):
         self.configure(fg_color=COLORS['bg_dark'])
 
         self.transient(parent)
-        self.after(150, self.grab_set)
+        self.after(150, lambda: (self.grab_set(), self.focus_force()))
 
         self._build_ui(initial_ref)
 
@@ -4597,7 +4617,8 @@ class OptimizedVisitDialog(ctk.CTkToplevel):
         pat_row = ctk.CTkFrame(pat_sec, fg_color="transparent")
         pat_row.pack(fill="x", pady=(2, 0))
         
-        ctk.CTkButton(pat_row, text="🔍 Select", command=self._open_patient_picker, width=90, height=40).pack(side="left")
+        self.btn_select_patient = ctk.CTkButton(pat_row, text="🔍 Select", command=self._open_patient_picker, width=90, height=40)
+        self.btn_select_patient.pack(side="left")
         self.lbl_selected_patient = ctk.CTkLabel(pat_row, text="No patient selected", font=(FONT_FAMILY, 14), text_color=COLORS['text_secondary'])
         self.lbl_selected_patient.pack(side="left", padx=15)
 
@@ -4659,6 +4680,10 @@ class OptimizedVisitDialog(ctk.CTkToplevel):
 
         ctk.CTkButton(self.footer, text="✓ SAVE VISIT RECORD", command=self._save, fg_color=COLORS['accent_green'], height=50, corner_radius=14, font=(FONT_FAMILY, 16, "bold")).pack(side="right", fill="x", expand=True, padx=(10, 0))
         ctk.CTkButton(self.footer, text="Cancel", command=self.destroy, fg_color=COLORS['text_muted'], height=50, corner_radius=14, font=(FONT_FAMILY, 16, "bold")).pack(side="right", fill="x", expand=True)
+
+        self.bind("<Return>", lambda e: self._save())
+        self.bind("<s>", lambda e: self.btn_select_patient.invoke() if not isinstance(e.widget, (ctk.CTkEntry, ctk.CTkTextbox)) else None)
+        self.bind("<S>", lambda e: self.btn_select_patient.invoke() if not isinstance(e.widget, (ctk.CTkEntry, ctk.CTkTextbox)) else None)
 
     def _add_v_f(self, parent, label, placeholder, row, col):
         f = ctk.CTkFrame(parent, fg_color="transparent")
@@ -4789,7 +4814,7 @@ class PatientPickerDialog(ctk.CTkToplevel):
         self.configure(fg_color=COLORS['bg_dark'])
 
         self.transient(parent)
-        self.after(150, self.grab_set)
+        self.after(150, lambda: (self.grab_set(), self.focus_force()))
 
         # Filters state
         self.filters = {
@@ -4834,8 +4859,9 @@ class PatientPickerDialog(ctk.CTkToplevel):
                      fg_color=COLORS['bg_card'], text_color=COLORS['text_primary'],
                      width=100, height=45, corner_radius=14, border_width=1, border_color=COLORS['border']).pack(side="left", padx=(0, 10))
 
-        ctk.CTkButton(bar, text="➕ New Patient", command=self._add_patient,
-                     fg_color=COLORS['accent_green'], height=45, corner_radius=14).pack(side="left")
+        self.btn_new_patient = ctk.CTkButton(bar, text="➕ New Patient", command=self._add_patient,
+                     fg_color=COLORS['accent_green'], height=45, corner_radius=14)
+        self.btn_new_patient.pack(side="left")
 
         # Results area
         self.results_frame = ctk.CTkFrame(self, fg_color="transparent")
@@ -4903,7 +4929,11 @@ class PatientPickerDialog(ctk.CTkToplevel):
 
         tree.bind("<<TreeviewSelect>>", self._on_tree_select)
         tree.bind("<Double-Button-1>", lambda e: self._confirm_selection())
-        
+
+        self.bind("<Return>", lambda e: self._confirm_selection())
+        self.bind("<n>", lambda e: self.btn_new_patient.invoke() if not isinstance(e.widget, (ctk.CTkEntry, ctk.CTkTextbox)) else None)
+        self.bind("<N>", lambda e: self.btn_new_patient.invoke() if not isinstance(e.widget, (ctk.CTkEntry, ctk.CTkTextbox)) else None)
+
         return tree
 
     def _search(self, reset_page=False):
@@ -5102,6 +5132,8 @@ class PatientFilterDialog(ctk.CTkToplevel):
                      height=45, corner_radius=14,
                      font=(FONT_FAMILY, 14, "bold")).pack(side="right", fill="x", expand=True)
 
+        self.bind("<Return>", lambda e: self._apply())
+
     def _create_date_field(self, parent, label, current_val):
         frame = ctk.CTkFrame(parent, fg_color="transparent")
         frame.pack(side="left", fill="x", expand=True, padx=(0, 10))
@@ -5215,6 +5247,8 @@ class DateRangePickerDialog(ctk.CTkToplevel):
         ctk.CTkButton(footer, text="Apply Range", command=self._apply, fg_color=COLORS['accent_green'], height=40).pack(side="right", padx=(10, 0))
         ctk.CTkButton(footer, text="Cancel", command=self.destroy, height=40).pack(side="right")
 
+        self.bind("<Return>", lambda e: self._apply())
+
     def _open_cal(self, entry):
         def on_sel(d):
             entry.delete(0, "end")
@@ -5243,6 +5277,14 @@ def main():
     else:
         app_dir = os.path.dirname(os.path.abspath(__file__))
     os.chdir(app_dir)
+
+    # On Linux frozen builds, redirect stderr to a log file for debugging
+    if getattr(sys, 'frozen', False) and sys.platform.startswith('linux'):
+        import logging
+        log_path = os.path.join(app_dir, 'clinic_error.log')
+        logging.basicConfig(filename=log_path, level=logging.ERROR,
+                            format='%(asctime)s %(levelname)s: %(message)s')
+        sys.excepthook = lambda t, v, tb: logging.error("Uncaught exception", exc_info=(t, v, tb))
 
     db = ClinicDatabase()
 
