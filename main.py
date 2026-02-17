@@ -993,7 +993,7 @@ class ClinicApp(ctk.CTk):
     
     def _open_new_visit_dialog(self):
         """Open new visit dialog - Optimized Phase 4 workflow"""
-        OptimizedVisitDialog(self, self.db, self._on_visit_added)
+        OptimizedVisitDialog(self, self.db, self._on_visit_added, mode="new")
 
     def _open_encode_dialog(self):
         """Open encode dialog - Optimized Phase 4 workflow"""
@@ -1003,7 +1003,7 @@ class ClinicApp(ctk.CTk):
             ref = v['reference_number'] if v else visit_id
             self._on_encode_added(visit_id, ref)
 
-        OptimizedVisitDialog(self, self.db, on_encode_complete)
+        OptimizedVisitDialog(self, self.db, on_encode_complete, mode="encode")
 
     def _on_encode_added(self, visit_id: int, reference_number: int):
         """Callback after encoded visit is added"""
@@ -4547,11 +4547,12 @@ class PatientVisitLogsDialog(ctk.CTkToplevel):
 class OptimizedVisitDialog(ctk.CTkToplevel):
     """Ultra-wide horizontal visit encoding workflow to eliminate scrolling"""
 
-    def __init__(self, parent, db: ClinicDatabase, callback, initial_ref=None):
+    def __init__(self, parent, db: ClinicDatabase, callback, initial_ref=None, mode="new"):
         super().__init__(parent)
-        
+
         self.db = db
         self.callback = callback
+        self.mode = mode
         self.selected_patient = None
         self.show_details = False
         
@@ -4637,8 +4638,13 @@ class OptimizedVisitDialog(ctk.CTkToplevel):
         
         self.entry_date = ctk.CTkEntry(dt_row, width=110, height=40)
         self.entry_date.pack(side="left", padx=(0, 5))
-        from utils import get_current_date
-        self.entry_date.insert(0, get_current_date())
+        from utils import get_current_date, db_date_to_ui
+        if self.mode == "encode":
+            last_encode_date = self.db.get_last_encoded_visit_date()
+            default_date = db_date_to_ui(last_encode_date) if last_encode_date else get_current_date()
+        else:
+            default_date = get_current_date()
+        self.entry_date.insert(0, default_date)
         ctk.CTkButton(dt_row, text="📅", width=35, height=40, command=self._open_calendar, fg_color=COLORS['accent_blue']).pack(side="left", padx=(0, 15))
 
         self.hour_var = ctk.StringVar(value=datetime.datetime.now().strftime("%I"))
@@ -4783,7 +4789,8 @@ class OptimizedVisitDialog(ctk.CTkToplevel):
             bp=self.entry_bp.get().strip(),
             temp=temp,
             notes=notes,
-            reference_number=ref_num
+            reference_number=ref_num,
+            visit_type=self.mode
         )
 
         if visit_id:

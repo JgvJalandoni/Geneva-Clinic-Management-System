@@ -89,9 +89,16 @@ class ClinicDatabase:
                         medical_notes TEXT,
                         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                         modified_at TEXT,
+                        visit_type TEXT DEFAULT 'new',
                         FOREIGN KEY (patient_id) REFERENCES patients(patient_id) ON DELETE CASCADE
                     )
                 """)
+
+                # Migration: Add visit_type column to visit_logs if not present
+                cursor.execute("PRAGMA table_info(visit_logs)")
+                vl_columns = [column[1] for column in cursor.fetchall()]
+                if "visit_type" not in vl_columns:
+                    cursor.execute("ALTER TABLE visit_logs ADD COLUMN visit_type TEXT DEFAULT 'new'")
 
                 # DATA MIGRATION: Populate patients.reference_number from visit_logs if not already set
                 # We use the earliest reference number assigned to the patient
@@ -599,7 +606,7 @@ class ClinicDatabase:
     def add_visit(self, patient_id: int, visit_date: str, visit_time: str,
                  weight: Optional[float] = None, height: Optional[float] = None,
                  bp: str = "", temp: Optional[float] = None, notes: str = "",
-                 reference_number: Optional[int] = None) -> Optional[int]:
+                 reference_number: Optional[int] = None, visit_type: str = "new") -> Optional[int]:
         """
         Create new visit record - Uses patient's reference number
 
@@ -636,15 +643,32 @@ class ClinicDatabase:
                 cursor.execute("""
                     INSERT INTO visit_logs
                     (patient_id, reference_number, visit_date, visit_time, weight_kg, height_cm,
-                     blood_pressure, temperature_celsius, medical_notes)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (patient_id, reference_number, visit_date, visit_time, weight, height, bp or None, temp, notes or None))
+                     blood_pressure, temperature_celsius, medical_notes, visit_type)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (patient_id, reference_number, visit_date, visit_time, weight, height, bp or None, temp, notes or None, visit_type))
                 conn.commit()
                 return cursor.lastrowid
         except sqlite3.Error as e:
             print(f"Error adding visit: {e}")
             return None
-    
+
+    def get_last_encoded_visit_date(self) -> Optional[str]:
+        """Get the visit_date of the most recently created 'encode' type visit.
+
+        Returns:
+            Date string in YYYY-MM-DD format, or None if no encoded visits exist.
+        """
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "SELECT visit_date FROM visit_logs WHERE visit_type = 'encode' ORDER BY created_at DESC LIMIT 1"
+                )
+                row = cursor.fetchone()
+                return row[0] if row else None
+        except sqlite3.Error:
+            return None
+
     def get_visits_by_date(self, date_str: str) -> List[Dict]:
         """
         Get all visits for a specific date with patient information - OPTIMIZED
