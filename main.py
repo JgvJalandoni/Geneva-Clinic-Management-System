@@ -72,6 +72,8 @@ class ClinicApp(ctk.CTk):
             '-fullscreen', not self.attributes('-fullscreen')))
         self.bind("<n>", lambda e: self._open_new_visit_dialog() if not isinstance(e.widget, (ctk.CTkEntry, ctk.CTkTextbox)) else None)
         self.bind("<N>", lambda e: self._open_new_visit_dialog() if not isinstance(e.widget, (ctk.CTkEntry, ctk.CTkTextbox)) else None)
+        self.bind("<e>", lambda e: self._open_encode_dialog() if not isinstance(e.widget, (ctk.CTkEntry, ctk.CTkTextbox)) else None)
+        self.bind("<E>", lambda e: self._open_encode_dialog() if not isinstance(e.widget, (ctk.CTkEntry, ctk.CTkTextbox)) else None)
 
         # Current view tracking - O(1) state management
         self.current_view = "overview"
