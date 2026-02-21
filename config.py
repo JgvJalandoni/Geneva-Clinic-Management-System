@@ -87,8 +87,8 @@ COLORS = {
 # UI CONSTANTS
 # ═══════════════════════════════════════════════════════════════════════════════
 
-# Font Configurations
-FONTS = {
+# Font Configurations (base values before scaling)
+BASE_FONTS = {
     'header_large': (FONT_FAMILY, 40),
     'header': (FONT_FAMILY, 24, "bold"),
     'subheader': (FONT_FAMILY, 18, "bold"),
@@ -103,8 +103,8 @@ FONTS = {
     'mono': (MONO_FAMILY, 13),
 }
 
-# Widget Heights
-HEIGHTS = {
+# Widget Heights (base values before scaling)
+BASE_HEIGHTS = {
     'header': 80,
     'footer': 40,
     'button': 40,
@@ -114,6 +114,38 @@ HEIGHTS = {
     'entry_small': 35,
     'entry_large': 45,
 }
+
+# These get overwritten by apply_scaling() at startup
+FONTS = dict(BASE_FONTS)
+HEIGHTS = dict(BASE_HEIGHTS)
+SCALE_FACTOR = 1.0
+
+
+def get_scale_factor(root):
+    """Calculate UI scale factor based on screen resolution.
+    Base resolution: 1920x1080 = scale 1.0
+    Larger screens get bigger UI, smaller screens get smaller UI.
+    """
+    sw = root.winfo_screenwidth()
+    sh = root.winfo_screenheight()
+    scale = min(sw / 1920, sh / 1080)
+    return max(scale, 0.8)  # minimum 0.8 so tiny screens stay usable
+
+
+def apply_scaling(root):
+    """Apply resolution-based scaling to FONTS and HEIGHTS. Call after root window is created."""
+    global FONTS, HEIGHTS, SCALE_FACTOR
+    scale = get_scale_factor(root)
+    SCALE_FACTOR = scale
+    FONTS = {}
+    for k, v in BASE_FONTS.items():
+        size = max(int(v[1] * scale), 8)
+        if len(v) > 2:
+            FONTS[k] = (v[0], size, v[2])
+        else:
+            FONTS[k] = (v[0], size)
+    HEIGHTS = {k: max(int(v * scale), 20) for k, v in BASE_HEIGHTS.items()}
+    return scale
 
 # Validation Ranges
 VALIDATION = {
