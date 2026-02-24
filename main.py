@@ -321,10 +321,11 @@ class ClinicApp(ctk.CTk):
         style.configure("Picker.Treeview.Heading",
                        background=get_color('accent_blue'))
 
-        # Re-apply zebra stripe tags on overview tree
+        # Re-apply zebra stripe tags on overview tree and force repaint
         if hasattr(self, 'tree_overview'):
             self.tree_overview.tag_configure('evenrow', background=get_color('bg_card_hover'))
             self.tree_overview.tag_configure('oddrow', background=get_color('bg_card'))
+            self.tree_overview.update_idletasks()
 
     def _build_header(self):
         """Build header with clock and branding"""
@@ -864,7 +865,7 @@ class ClinicApp(ctk.CTk):
             self.lbl_overview_filter_range.configure(text="")
         for idx, visit in enumerate(visits):
             tag = 'evenrow' if idx % 2 == 0 else 'oddrow'
-            self.tree_overview.insert("", "end", values=(
+            self.tree_overview.insert("", "end", iid=str(visit['visit_id']), values=(
                 format_reference_number(visit['reference_number']),
                 format_date_readable(visit['visit_date']),
                 visit['full_name'],
@@ -899,7 +900,7 @@ class ClinicApp(ctk.CTk):
         from utils import format_reference_number
         for idx, visit in enumerate(visits):
             tag = 'evenrow' if idx % 2 == 0 else 'oddrow'
-            self.tree_today.insert("", "end", values=(
+            self.tree_today.insert("", "end", iid=str(visit['visit_id']), values=(
                 format_reference_number(visit['reference_number']),
                 visit['full_name'],
                 format_date_readable(visit['visit_date']),
@@ -1073,38 +1074,26 @@ class ClinicApp(ctk.CTk):
         """Handle visit log double-click - open edit dialog"""
         selection = self.tree_today.selection()
         if selection:
-            values = self.tree_today.item(selection[0], "values")
-            # Remove dashes from formatted reference number (e.g., '00-01-03' -> 103)
-            raw_ref = values[0].replace("-", "")
-            reference_number = int(raw_ref)
-            # Get visit by reference number
-            visit = self.db.get_visit_by_reference(reference_number)
-            if visit:
-                def on_edit_complete():
-                    self.stats_cache.invalidate()
-                    self._refresh_stats()
-                    self._refresh_recent_visits()
-                    self._refresh_today_visits()
-                EditVisitDialog(self, self.db, visit['visit_id'], on_edit_complete)
+            visit_id = int(selection[0])
+            def on_edit_complete():
+                self.stats_cache.invalidate()
+                self._refresh_stats()
+                self._refresh_recent_visits()
+                self._refresh_today_visits()
+            EditVisitDialog(self, self.db, visit_id, on_edit_complete)
     
     def _on_overview_visit_double_click(self, event):
         """Handle overview visit double-click - open edit dialog"""
         selection = self.tree_overview.selection()
         if selection:
-            values = self.tree_overview.item(selection[0], "values")
-            # Remove dashes from formatted reference number (e.g., '00-01-03' -> 103)
-            raw_ref = values[0].replace("-", "")
-            reference_number = int(raw_ref)
-            # Get visit by reference number
-            visit = self.db.get_visit_by_reference(reference_number)
-            if visit:
-                def on_edit_complete():
-                    self.stats_cache.invalidate()
-                    self._refresh_stats()
-                    self._refresh_recent_visits()
-                    if "visits" in self.view_widgets:
-                        self._refresh_today_visits()
-                EditVisitDialog(self, self.db, visit['visit_id'], on_edit_complete)
+            visit_id = int(selection[0])
+            def on_edit_complete():
+                self.stats_cache.invalidate()
+                self._refresh_stats()
+                self._refresh_recent_visits()
+                if "visits" in self.view_widgets:
+                    self._refresh_today_visits()
+            EditVisitDialog(self, self.db, visit_id, on_edit_complete)
     
     # ═══════════════════════════════════════════════════════════════════════════
     # UTILITIES
@@ -1814,7 +1803,9 @@ class AddPatientDialog(ctk.CTkToplevel):
         
         # Add Reference Number field first
         self.entry_ref_num = self._add_field(name_row, "Patient ID #", 0, 0, width=_s(120))
-        self.entry_ref_num.insert(0, str(self.db.get_next_reference_number()))
+        last_ref = self.db.get_last_patient_reference_number()
+        default_ref = (last_ref + 1) if last_ref is not None else self.db.get_next_reference_number()
+        self.entry_ref_num.insert(0, str(default_ref))
         
         self.entry_last_name = self._add_field(name_row, "Last Name", 0, 1, width=_s(280))
         self.entry_first_name = self._add_field(name_row, "First Name", 0, 2, width=_s(280))
@@ -4286,9 +4277,26 @@ class PatientVisitLogsDialog(ctk.CTkToplevel):
         tree.bind("<Double-Button-1>", self._on_double_click)
         return tree
 
+    def _set_appearance_mode(self, mode_string):
+        super()._set_appearance_mode(mode_string)
+        self.after(50, self._restyle_tree)
+
+    def _restyle_tree(self):
+        if not hasattr(self, 'tree') or not self.tree.winfo_exists():
+            return
+        style = ttk.Style()
+        style.configure("Logs.Treeview",
+                       background=get_color('bg_card'),
+                       foreground=get_color('text_primary'),
+                       fieldbackground=get_color('bg_card'))
+        style.configure("Logs.Treeview.Heading",
+                       background=get_color('accent_blue'),
+                       foreground="#ffffff")
+        self.tree.update_idletasks()
+
     def _refresh(self, reset_page=False):
         if reset_page: self.page = 1
-        
+
         from utils import ui_date_to_db
         start = ui_date_to_db(self.entry_start.get().strip())
         end = ui_date_to_db(self.entry_end.get().strip())
@@ -4412,7 +4420,11 @@ class OptimizedVisitDialog(ctk.CTkToplevel):
         ref_row = ctk.CTkFrame(ref_sec, fg_color="transparent")
         ref_row.pack(fill="x", pady=(2, 0))
         
-        next_ref = initial_ref or self.db.get_next_reference_number()
+        if self.mode == "encode":
+            last_ref = self.db.get_last_encoded_reference_number()
+            next_ref = initial_ref or ((last_ref + 1) if last_ref is not None else self.db.get_next_reference_number())
+        else:
+            next_ref = initial_ref or self.db.get_next_reference_number()
         self.entry_ref = ctk.CTkEntry(ref_row, width=_s(90), height=_s(48), font=_sf(18, "bold"), justify="center")
         self.entry_ref.pack(side="left")
         self.entry_ref.insert(0, str(next_ref))
@@ -4449,15 +4461,25 @@ class OptimizedVisitDialog(ctk.CTkToplevel):
         dt_row = ctk.CTkFrame(dt_sec, fg_color="transparent")
         dt_row.pack(fill="x", pady=(2, 0))
         
-        self.entry_date = ctk.CTkEntry(dt_row, width=_s(120), height=_s(48), font=_sf(15))
-        self.entry_date.pack(side="left", padx=(0, 5))
         from utils import get_current_date, db_date_to_ui
         if self.mode == "encode":
             last_encode_date = self.db.get_last_encoded_visit_date()
             default_date = db_date_to_ui(last_encode_date) if last_encode_date else get_current_date()
         else:
             default_date = get_current_date()
-        self.entry_date.insert(0, default_date)
+        _dm, _dd, _dy = default_date.split("/")
+
+        self.entry_month = ctk.CTkEntry(dt_row, width=_s(50), height=_s(48), font=_sf(15), justify="center", placeholder_text="MM")
+        self.entry_month.pack(side="left", padx=(0, 2))
+        self.entry_month.insert(0, _dm)
+        ctk.CTkLabel(dt_row, text="/", font=_sf(16, "bold"), text_color=COLORS['text_secondary']).pack(side="left")
+        self.entry_day = ctk.CTkEntry(dt_row, width=_s(50), height=_s(48), font=_sf(15), justify="center", placeholder_text="DD")
+        self.entry_day.pack(side="left", padx=(2, 2))
+        self.entry_day.insert(0, _dd)
+        ctk.CTkLabel(dt_row, text="/", font=_sf(16, "bold"), text_color=COLORS['text_secondary']).pack(side="left")
+        self.entry_year = ctk.CTkEntry(dt_row, width=_s(72), height=_s(48), font=_sf(15), justify="center", placeholder_text="YYYY")
+        self.entry_year.pack(side="left", padx=(2, 5))
+        self.entry_year.insert(0, _dy)
         ctk.CTkButton(dt_row, text="📅", width=_s(48), height=_s(48), command=self._open_calendar, fg_color=COLORS['accent_blue']).pack(side="left", padx=(0, 15))
 
         self.hour_var = ctk.StringVar(value=datetime.datetime.now().strftime("%I"))
@@ -4539,7 +4561,7 @@ class OptimizedVisitDialog(ctk.CTkToplevel):
                 self.entry_ref.insert(0, str(p['reference_number']))
 
             self.btn_view_history.pack(side="left", padx=10)
-            self.entry_date.focus()
+            self.entry_day.focus()
         PatientPickerDialog(self, self.db, on_pick)
 
     def _view_patient_history(self):
@@ -4549,8 +4571,13 @@ class OptimizedVisitDialog(ctk.CTkToplevel):
 
     def _open_calendar(self):
         def on_sel(d):
-            self.entry_date.delete(0, "end")
-            self.entry_date.insert(0, d)
+            _m, _d, _y = d.split("/")
+            self.entry_month.delete(0, "end")
+            self.entry_month.insert(0, _m)
+            self.entry_day.delete(0, "end")
+            self.entry_day.insert(0, _d)
+            self.entry_year.delete(0, "end")
+            self.entry_year.insert(0, _y)
         CalendarDialog(self, on_sel)
 
     def _save(self):
@@ -4580,7 +4607,7 @@ class OptimizedVisitDialog(ctk.CTkToplevel):
             return
 
         from utils import ui_date_to_db, validate_date, parse_time_input, safe_float
-        date_ui = self.entry_date.get().strip()
+        date_ui = f"{self.entry_month.get().strip()}/{self.entry_day.get().strip()}/{self.entry_year.get().strip()}"
         is_v, err = validate_date(date_ui)
         if not is_v:
             messagebox.showerror("Validation Error", err)
@@ -4756,6 +4783,23 @@ class PatientPickerDialog(ctk.CTkToplevel):
         self.bind("<N>", lambda e: self.btn_new_patient.invoke() if not isinstance(e.widget, _input_types) else None)
 
         return tree
+
+    def _set_appearance_mode(self, mode_string):
+        super()._set_appearance_mode(mode_string)
+        self.after(50, self._restyle_tree)
+
+    def _restyle_tree(self):
+        if not hasattr(self, 'tree') or not self.tree.winfo_exists():
+            return
+        style = ttk.Style()
+        style.configure("Picker.Treeview",
+                       background=get_color('bg_card'),
+                       foreground=get_color('text_primary'),
+                       fieldbackground=get_color('bg_card'))
+        style.configure("Picker.Treeview.Heading",
+                       background=get_color('accent_blue'),
+                       foreground="#ffffff")
+        self.tree.update_idletasks()
 
     def _search(self, reset_page=False):
         if reset_page: self.page = 1

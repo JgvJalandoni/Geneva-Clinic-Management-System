@@ -669,6 +669,40 @@ class ClinicDatabase:
         except sqlite3.Error:
             return None
 
+    def get_last_encoded_reference_number(self) -> Optional[int]:
+        """Get the reference_number of the most recently created 'encode' type visit.
+
+        Returns:
+            Reference number as int, or None if no encoded visits exist.
+        """
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "SELECT reference_number FROM visit_logs WHERE visit_type = 'encode' ORDER BY created_at DESC LIMIT 1"
+                )
+                row = cursor.fetchone()
+                return row[0] if row else None
+        except sqlite3.Error:
+            return None
+
+    def get_last_patient_reference_number(self) -> Optional[int]:
+        """Get the reference_number of the most recently inserted patient.
+
+        Returns:
+            Reference number as int, or None if no patients exist.
+        """
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "SELECT reference_number FROM patients ORDER BY patient_id DESC LIMIT 1"
+                )
+                row = cursor.fetchone()
+                return row[0] if row else None
+        except sqlite3.Error:
+            return None
+
     def get_visits_by_date(self, date_str: str) -> List[Dict]:
         """
         Get all visits for a specific date with patient information - OPTIMIZED
