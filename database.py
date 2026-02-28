@@ -34,14 +34,16 @@ class ClinicDatabase:
             with self.get_connection() as conn:
                 cursor = conn.cursor()
                 
-                # Patients Table - UPDATED with reference_number
+                # Patients Table - UPDATED with reference_number and reference_suffix
                 cursor.execute("""
                     CREATE TABLE IF NOT EXISTS patients (
                         patient_id INTEGER PRIMARY KEY AUTOINCREMENT,
                         reference_number INTEGER,
+                        reference_suffix TEXT NOT NULL DEFAULT '',
                         last_name TEXT NOT NULL,
                         first_name TEXT NOT NULL,
                         middle_name TEXT,
+                        name_suffix TEXT,
                         date_of_birth TEXT,
                         sex TEXT,
                         civil_status TEXT,
@@ -69,10 +71,18 @@ class ClinicDatabase:
                     ("parent_contact", "TEXT"),
                     ("school", "TEXT")
                 ]
-                
+
                 for col_name, col_type in migrations:
                     if col_name not in columns:
                         cursor.execute(f"ALTER TABLE patients ADD COLUMN {col_name} {col_type}")
+
+                # Migration: Add reference_suffix column if not present
+                if "reference_suffix" not in columns:
+                    cursor.execute("ALTER TABLE patients ADD COLUMN reference_suffix TEXT NOT NULL DEFAULT ''")
+
+                # Migration: Add name_suffix column if not present
+                if "name_suffix" not in columns:
+                    cursor.execute("ALTER TABLE patients ADD COLUMN name_suffix TEXT")
                 
                 # Visit Logs Table - with reference_number (now non-unique per visit, unique per patient)
                 cursor.execute("""
@@ -128,8 +138,10 @@ class ClinicDatabase:
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_patient_dob ON patients(date_of_birth)")
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_patient_ref ON patients(reference_number)")
                 
-                # UNIQUE index for patients to prevent "ghost" duplicates
-                cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_patient_unique_ref ON patients(reference_number)")
+                # UNIQUE index for patients: (reference_number, reference_suffix) pair must be unique
+                # Allows same reference_number with different suffix (e.g. 22454A and 22454B)
+                cursor.execute("DROP INDEX IF EXISTS idx_patient_unique_ref")
+                cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_patient_unique_ref ON patients(reference_number, reference_suffix)")
                 
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_visit_date ON visit_logs(visit_date)")
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_patient_visits ON visit_logs(patient_id)")
@@ -148,10 +160,12 @@ class ClinicDatabase:
     # ═══════════════════════════════════════════════════════════════════════════
     
     def add_patient(self, last_name: str, first_name: str, middle_name: str = "",
-                   dob: str = "", sex: str = "", civil_status: str = "", occupation: str = "", 
+                   name_suffix: str = "",
+                   dob: str = "", sex: str = "", civil_status: str = "", occupation: str = "",
                    parents: str = "", parent_contact: str = "", school: str = "",
                    contact: str = "", address: str = "", notes: str = "",
-                   reference_number: Optional[int] = None) -> Optional[int]:
+                   reference_number: Optional[int] = None,
+                   reference_suffix: str = "") -> Optional[int]:
         """
         Create new patient record - UPDATED with reference_number
         
@@ -182,12 +196,13 @@ class ClinicDatabase:
             with self.get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute("""
-                    INSERT INTO patients (reference_number, last_name, first_name, middle_name, date_of_birth, 
-                                        sex, civil_status, occupation, parents, parent_contact, school,
-                                        contact_number, address, notes)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (reference_number, last_name, first_name, middle_name or None, dob or None, 
-                      sex or None, civil_status or None, occupation or None, parents or None, 
+                    INSERT INTO patients (reference_number, reference_suffix, last_name, first_name, middle_name,
+                                        name_suffix, date_of_birth, sex, civil_status, occupation, parents,
+                                        parent_contact, school, contact_number, address, notes)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (reference_number, reference_suffix, last_name, first_name, middle_name or None,
+                      name_suffix or None,
+                      dob or None, sex or None, civil_status or None, occupation or None, parents or None,
                       parent_contact or None, school or None,
                       contact or None, address or None, notes or None))
                 conn.commit()
@@ -197,10 +212,12 @@ class ClinicDatabase:
             return None
     
     def update_patient(self, patient_id: int, last_name: str, first_name: str, middle_name: str = "",
-                      dob: str = "", sex: str = "", civil_status: str = "", occupation: str = "", 
+                      name_suffix: str = "",
+                      dob: str = "", sex: str = "", civil_status: str = "", occupation: str = "",
                       parents: str = "", parent_contact: str = "", school: str = "",
                       contact: str = "", address: str = "", notes: str = "",
-                      reference_number: Optional[int] = None) -> bool:
+                      reference_number: Optional[int] = None,
+                      reference_suffix: Optional[str] = None) -> bool:
         """
         Update existing patient record - UPDATED
         
@@ -228,26 +245,38 @@ class ClinicDatabase:
             with self.get_connection() as conn:
                 cursor = conn.cursor()
                 
-                if reference_number is not None:
+                if reference_number is not None and reference_suffix is not None:
                     cursor.execute("""
-                        UPDATE patients 
-                        SET last_name=?, first_name=?, middle_name=?, date_of_birth=?, 
+                        UPDATE patients
+                        SET last_name=?, first_name=?, middle_name=?, name_suffix=?, date_of_birth=?,
+                            sex=?, civil_status=?, occupation=?, parents=?, parent_contact=?, school=?,
+                            contact_number=?, address=?, notes=?, reference_number=?, reference_suffix=?
+                        WHERE patient_id=?
+                    """, (last_name, first_name, middle_name or None, name_suffix or None, dob or None,
+                          sex or None, civil_status or None, occupation or None, parents or None,
+                          parent_contact or None, school or None,
+                          contact or None, address or None, notes or None,
+                          reference_number, reference_suffix, patient_id))
+                elif reference_number is not None:
+                    cursor.execute("""
+                        UPDATE patients
+                        SET last_name=?, first_name=?, middle_name=?, name_suffix=?, date_of_birth=?,
                             sex=?, civil_status=?, occupation=?, parents=?, parent_contact=?, school=?,
                             contact_number=?, address=?, notes=?, reference_number=?
                         WHERE patient_id=?
-                    """, (last_name, first_name, middle_name or None, dob or None, 
-                          sex or None, civil_status or None, occupation or None, parents or None, 
+                    """, (last_name, first_name, middle_name or None, name_suffix or None, dob or None,
+                          sex or None, civil_status or None, occupation or None, parents or None,
                           parent_contact or None, school or None,
                           contact or None, address or None, notes or None, reference_number, patient_id))
                 else:
                     cursor.execute("""
-                        UPDATE patients 
-                        SET last_name=?, first_name=?, middle_name=?, date_of_birth=?, 
+                        UPDATE patients
+                        SET last_name=?, first_name=?, middle_name=?, name_suffix=?, date_of_birth=?,
                             sex=?, civil_status=?, occupation=?, parents=?, parent_contact=?, school=?,
                             contact_number=?, address=?, notes=?
                         WHERE patient_id=?
-                    """, (last_name, first_name, middle_name or None, dob or None, 
-                          sex or None, civil_status or None, occupation or None, parents or None, 
+                    """, (last_name, first_name, middle_name or None, name_suffix or None, dob or None,
+                          sex or None, civil_status or None, occupation or None, parents or None,
                           parent_contact or None, school or None,
                           contact or None, address or None, notes or None, patient_id))
                 
@@ -277,20 +306,24 @@ class ClinicDatabase:
             print(f"Error fetching patient: {e}")
             return None
 
-    def get_patient_by_reference(self, reference_number: int) -> Optional[Dict]:
+    def get_patient_by_reference(self, reference_number: int, reference_suffix: str = '') -> Optional[Dict]:
         """
-        Get single patient by their reference number (Patient ID)
-        
+        Get single patient by their reference number and optional suffix (e.g. 22454, 'B').
+
         Args:
             reference_number: The patient ID to look up
-            
+            reference_suffix: The letter suffix ('' for no suffix, 'A', 'B', etc.)
+
         Returns:
             Dictionary with patient data or None if not found
         """
         try:
             with self.get_connection() as conn:
                 cursor = conn.cursor()
-                cursor.execute("SELECT * FROM patients WHERE reference_number = ?", (reference_number,))
+                cursor.execute(
+                    "SELECT * FROM patients WHERE reference_number = ? AND reference_suffix = ?",
+                    (reference_number, reference_suffix)
+                )
                 row = cursor.fetchone()
                 return dict(row) if row else None
         except sqlite3.Error as e:
@@ -374,19 +407,20 @@ class ClinicDatabase:
                     # Clean query for reference number check (remove dashes)
                     clean_query = query.replace("-", "")
                     
-                    # Search across name and reference number
+                    # Search across name and reference number (supports combined IDs like "22454B")
+                    clean_query_upper = clean_query.upper()
                     cursor.execute("""
                         SELECT p.*, MAX(v.visit_date) as last_visit
                         FROM patients p
                         LEFT JOIN visit_logs v ON p.patient_id = v.patient_id
-                        WHERE p.first_name LIKE ? 
-                           OR p.middle_name LIKE ? 
+                        WHERE p.first_name LIKE ?
+                           OR p.middle_name LIKE ?
                            OR p.last_name LIKE ?
-                           OR CAST(p.reference_number AS TEXT) LIKE ?
+                           OR (CAST(p.reference_number AS TEXT) || p.reference_suffix) LIKE ?
                         GROUP BY p.patient_id
                         ORDER BY p.last_name, p.first_name
                         LIMIT 50
-                    """, (f'%{query}%', f'%{query}%', f'%{query}%', f'%{clean_query}%'))
+                    """, (f'%{query}%', f'%{query}%', f'%{query}%', f'%{clean_query_upper}%'))
                 return [dict(row) for row in cursor.fetchall()]
         except sqlite3.Error:
             return []
@@ -418,8 +452,8 @@ class ClinicDatabase:
                 params = []
                 
                 if query:
-                    clean_query = query.replace("-", "")
-                    base_query += " AND (p.first_name LIKE ? OR p.middle_name LIKE ? OR p.last_name LIKE ? OR CAST(p.reference_number AS TEXT) LIKE ?)"
+                    clean_query = query.replace("-", "").upper()
+                    base_query += " AND (p.first_name LIKE ? OR p.middle_name LIKE ? OR p.last_name LIKE ? OR (CAST(p.reference_number AS TEXT) || p.reference_suffix) LIKE ?)"
                     params.extend([f"%{query}%", f"%{query}%", f"%{query}%", f"%{clean_query}%"])
                 
                 if filters:
@@ -579,29 +613,67 @@ class ClinicDatabase:
         except sqlite3.Error:
             return 1
 
-    def is_reference_number_available(self, ref_num: int) -> bool:
+    def is_reference_number_available(self, ref_num: int, suffix: str = '') -> bool:
         """
-        Check if a reference number is available (not already used)
-        NOTE: Reference numbers are now patient-based.
+        Check if a (reference_number, reference_suffix) pair is available in patients.
 
         Args:
             ref_num: Reference number to check
+            suffix: Suffix to check ('' for no suffix, 'A', 'B', etc.)
 
         Returns:
-            True if available, False if already exists
+            True if the pair is unused, False if already exists
         """
         try:
             with self.get_connection() as conn:
                 cursor = conn.cursor()
-                # Check both tables
-                cursor.execute("""
-                    SELECT 1 FROM visit_logs WHERE reference_number = ?
-                    UNION
-                    SELECT 1 FROM patients WHERE reference_number = ?
-                """, (ref_num, ref_num))
+                cursor.execute(
+                    "SELECT 1 FROM patients WHERE reference_number = ? AND reference_suffix = ?",
+                    (ref_num, suffix)
+                )
                 return cursor.fetchone() is None
         except sqlite3.Error:
             return False
+
+    def get_next_suffix_for_reference(self, reference_number: int) -> Optional[str]:
+        """
+        Returns the suffix the NEW patient should receive when reference_number is a duplicate.
+        As a side-effect, upgrades the original patient's suffix '' -> 'A' if needed.
+
+        Returns:
+            '' if not actually a duplicate yet, next letter ('B', 'C', ...) if it is,
+            or None if all letters A-P are exhausted.
+        """
+        letters = 'ABCDEFGHIJKLMNOP'
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "SELECT patient_id, reference_suffix FROM patients WHERE reference_number = ? ORDER BY reference_suffix",
+                    (reference_number,)
+                )
+                existing = [(row[0], row[1]) for row in cursor.fetchall()]
+
+                if not existing:
+                    return ''  # Not a duplicate
+
+                # If the original has no suffix, upgrade it to 'A' and give new patient 'B'
+                if any(suffix == '' for _, suffix in existing):
+                    cursor.execute(
+                        "UPDATE patients SET reference_suffix = 'A' WHERE reference_number = ? AND reference_suffix = ''",
+                        (reference_number,)
+                    )
+                    conn.commit()
+                    return 'B'
+
+                used = {suffix for _, suffix in existing}
+                for letter in letters:
+                    if letter not in used:
+                        return letter
+                return None  # All A-P exhausted
+        except sqlite3.Error as e:
+            print(f"Error getting next suffix: {e}")
+            return None
 
     def add_visit(self, patient_id: int, visit_date: str, visit_time: str,
                  weight: Optional[float] = None, height: Optional[float] = None,
@@ -719,9 +791,10 @@ class ClinicDatabase:
                 cursor.execute("""
                     SELECT v.visit_id, v.reference_number, v.visit_date, v.visit_time, v.weight_kg, v.height_cm,
                            v.blood_pressure, v.temperature_celsius, v.medical_notes, v.created_at,
-                           p.patient_id, p.first_name, p.middle_name, p.last_name,
+                           p.patient_id, p.first_name, p.middle_name, p.last_name, p.reference_suffix,
                            (p.last_name || ', ' || p.first_name ||
-                            CASE WHEN p.middle_name IS NOT NULL THEN ' ' || p.middle_name ELSE '' END) as full_name
+                            CASE WHEN p.middle_name IS NOT NULL THEN ' ' || p.middle_name ELSE '' END ||
+                            CASE WHEN p.name_suffix IS NOT NULL AND p.name_suffix != '' THEN ' ' || p.name_suffix ELSE '' END) as full_name
                     FROM visit_logs v
                     JOIN patients p ON v.patient_id = p.patient_id
                     WHERE v.visit_date = ?
@@ -813,9 +886,10 @@ class ClinicDatabase:
                 cursor.execute("""
                     SELECT v.visit_id, v.reference_number, v.visit_date, v.visit_time, v.weight_kg, v.height_cm,
                            v.blood_pressure, v.temperature_celsius, v.medical_notes, v.created_at,
-                           p.patient_id, p.first_name, p.middle_name, p.last_name,
+                           p.patient_id, p.first_name, p.middle_name, p.last_name, p.reference_suffix,
                            (p.last_name || ', ' || p.first_name ||
-                            CASE WHEN p.middle_name IS NOT NULL THEN ' ' || p.middle_name ELSE '' END) as full_name
+                            CASE WHEN p.middle_name IS NOT NULL THEN ' ' || p.middle_name ELSE '' END ||
+                            CASE WHEN p.name_suffix IS NOT NULL AND p.name_suffix != '' THEN ' ' || p.name_suffix ELSE '' END) as full_name
                     FROM visit_logs v
                     JOIN patients p ON v.patient_id = p.patient_id
                     ORDER BY v.reference_number DESC
@@ -847,10 +921,10 @@ class ClinicDatabase:
                 params = []
                 
                 if query:
-                    clean_query = query.replace("-", "")
-                    query_cond += " AND (p.first_name LIKE ? OR p.middle_name LIKE ? OR p.last_name LIKE ? OR CAST(p.reference_number AS TEXT) LIKE ?)"
+                    clean_query = query.replace("-", "").upper()
+                    query_cond += " AND (p.first_name LIKE ? OR p.middle_name LIKE ? OR p.last_name LIKE ? OR (CAST(p.reference_number AS TEXT) || p.reference_suffix) LIKE ?)"
                     params.extend([f"%{query}%", f"%{query}%", f"%{query}%", f"%{clean_query}%"])
-                
+
                 if start_date:
                     query_cond += " AND v.visit_date >= ?"
                     params.append(start_date)
@@ -870,12 +944,13 @@ class ClinicDatabase:
                 # Get paginated results - prioritized p.reference_number
                 offset = (page - 1) * per_page
                 cursor.execute(f"""
-                    SELECT v.visit_id, COALESCE(p.reference_number, v.reference_number) as reference_number, 
+                    SELECT v.visit_id, COALESCE(p.reference_number, v.reference_number) as reference_number,
                            v.visit_date, v.visit_time, v.weight_kg, v.height_cm,
                            v.blood_pressure, v.temperature_celsius, v.medical_notes, v.created_at,
-                           p.patient_id, p.first_name, p.middle_name, p.last_name,
+                           p.patient_id, p.first_name, p.middle_name, p.last_name, p.reference_suffix,
                            (p.last_name || ', ' || p.first_name ||
-                            CASE WHEN p.middle_name IS NOT NULL THEN ' ' || p.middle_name ELSE '' END) as full_name
+                            CASE WHEN p.middle_name IS NOT NULL THEN ' ' || p.middle_name ELSE '' END ||
+                            CASE WHEN p.name_suffix IS NOT NULL AND p.name_suffix != '' THEN ' ' || p.name_suffix ELSE '' END) as full_name
                     FROM visit_logs v
                     JOIN patients p ON v.patient_id = p.patient_id
                     {query_cond}
@@ -907,8 +982,10 @@ class ClinicDatabase:
                     SELECT v.visit_id, v.reference_number, v.visit_date, v.visit_time, v.weight_kg, v.height_cm,
                            v.blood_pressure, v.temperature_celsius, v.medical_notes, v.created_at,
                            p.patient_id, p.first_name, p.middle_name, p.last_name, p.date_of_birth,
+                           p.reference_suffix,
                            (p.last_name || ', ' || p.first_name ||
-                            CASE WHEN p.middle_name IS NOT NULL THEN ' ' || p.middle_name ELSE '' END) as full_name
+                            CASE WHEN p.middle_name IS NOT NULL THEN ' ' || p.middle_name ELSE '' END ||
+                            CASE WHEN p.name_suffix IS NOT NULL AND p.name_suffix != '' THEN ' ' || p.name_suffix ELSE '' END) as full_name
                     FROM visit_logs v
                     JOIN patients p ON v.patient_id = p.patient_id
                     WHERE v.visit_id = ?
@@ -935,8 +1012,10 @@ class ClinicDatabase:
                     SELECT v.visit_id, v.reference_number, v.visit_date, v.visit_time, v.weight_kg, v.height_cm,
                            v.blood_pressure, v.temperature_celsius, v.medical_notes, v.created_at,
                            p.patient_id, p.first_name, p.middle_name, p.last_name, p.date_of_birth,
+                           p.reference_suffix,
                            (p.last_name || ', ' || p.first_name ||
-                            CASE WHEN p.middle_name IS NOT NULL THEN ' ' || p.middle_name ELSE '' END) as full_name
+                            CASE WHEN p.middle_name IS NOT NULL THEN ' ' || p.middle_name ELSE '' END ||
+                            CASE WHEN p.name_suffix IS NOT NULL AND p.name_suffix != '' THEN ' ' || p.name_suffix ELSE '' END) as full_name
                     FROM visit_logs v
                     JOIN patients p ON v.patient_id = p.patient_id
                     WHERE v.reference_number = ?

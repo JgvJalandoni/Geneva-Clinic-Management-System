@@ -3,8 +3,9 @@ Utility functions for Tita's Clinic Management System
 Handles date/time formatting, parsing, and validation
 """
 
+import re
 import datetime
-from typing import Optional
+from typing import Optional, Tuple
 from config import DATETIME_FORMATS, VALIDATION
 
 
@@ -221,14 +222,58 @@ def format_reference_number(ref: any) -> str:
     """
     if ref is None:
         return "—"
-    
+
     # Ensure it's a string of at least 6 digits
     ref_str = str(ref).zfill(6)
-    
+
     if len(ref_str) == 6:
         return f"{ref_str[:2]}-{ref_str[2:4]}-{ref_str[4:]}"
-    
+
     return ref_str
+
+
+def name_case(text: any) -> str:
+    """
+    Convert a name to Title Case for display.
+    'jAmeS jaLaNdoNi' → 'James Jalandoni'
+    'marie anNe viLlANUeva ChAvez' → 'Marie Anne Villanueva Chavez'
+    Safe with None/empty values.
+    """
+    if not text:
+        return str(text) if text is not None else ''
+    return str(text).strip().title()
+
+
+def format_ref_display(num: any, suffix: str = '') -> str:
+    """
+    Format reference number with optional suffix for display.
+    Example: (22454, 'B') → '02-24-54B'  |  (22454, '') → '02-24-54'
+    """
+    base = format_reference_number(num)
+    if base == "—":
+        return "—"
+    return base + (suffix or '')
+
+
+def parse_reference_input(text: str) -> Tuple[Optional[int], Optional[str]]:
+    """
+    Parse a reference number string that may include a letter suffix.
+    Accepts raw numbers or dash-formatted display strings.
+    Examples:
+        '22454'    → (22454, '')
+        '22454B'   → (22454, 'B')
+        '02-24-54' → (22454, '')
+        '02-24-54B'→ (22454, 'B')
+    Returns (None, None) if the input is not a valid reference number.
+    """
+    if not text:
+        return None, None
+    # Strip dashes (handles formatted display strings like "02-24-54")
+    cleaned = text.strip().replace('-', '').upper()
+    m = re.match(r'^(\d+)([A-P]?)$', cleaned)
+    if m:
+        return int(m.group(1)), m.group(2)
+    return None, None
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

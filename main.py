@@ -849,7 +849,7 @@ class ClinicApp(ctk.CTk):
         for item in self.tree_overview.get_children():
             self.tree_overview.delete(item)
 
-        from utils import format_reference_number, format_date_readable
+        from utils import format_ref_display, format_date_readable, name_case
 
         # Update custom range display
         start = self.overview_filters.get('start_date')
@@ -866,9 +866,9 @@ class ClinicApp(ctk.CTk):
         for idx, visit in enumerate(visits):
             tag = 'evenrow' if idx % 2 == 0 else 'oddrow'
             self.tree_overview.insert("", "end", iid=str(visit['visit_id']), values=(
-                format_reference_number(visit['reference_number']),
+                format_ref_display(visit['reference_number'], visit.get('reference_suffix', '')),
                 format_date_readable(visit['visit_date']),
-                visit['full_name'],
+                name_case(visit['full_name']),
                 f"{visit['weight_kg']}" if visit.get('weight_kg') else "-",
                 visit.get('blood_pressure') or "-",
                 f"{visit['temperature_celsius']}" if visit.get('temperature_celsius') else "-",
@@ -897,12 +897,12 @@ class ClinicApp(ctk.CTk):
         for item in self.tree_today.get_children():
             self.tree_today.delete(item)
 
-        from utils import format_reference_number
+        from utils import format_ref_display, name_case
         for idx, visit in enumerate(visits):
             tag = 'evenrow' if idx % 2 == 0 else 'oddrow'
             self.tree_today.insert("", "end", iid=str(visit['visit_id']), values=(
-                format_reference_number(visit['reference_number']),
-                visit['full_name'],
+                format_ref_display(visit['reference_number'], visit.get('reference_suffix', '')),
+                name_case(visit['full_name']),
                 format_date_readable(visit['visit_date']),
                 format_time_12hr(visit.get('visit_time')),
                 f"{visit['weight_kg']}" if visit.get('weight_kg') else "-",
@@ -970,17 +970,17 @@ class ClinicApp(ctk.CTk):
             text=f"Page {self.patients_page} of {total_pages}  ({self.patients_total} total)")
 
         # Populate with zebra striping
-        from utils import calculate_age, format_phone_number, format_reference_number
+        from utils import calculate_age, format_phone_number, format_ref_display, name_case
         for idx, patient in enumerate(patients):
             tag = 'evenrow' if idx % 2 == 0 else 'oddrow'
             # Calculate age from DOB
             age = calculate_age(patient.get('date_of_birth'))
             age_display = str(age) if age is not None else "-"
             self.tree_patients.insert("", "end", values=(
-                format_reference_number(patient['reference_number']),
-                patient['last_name'],
-                patient['first_name'],
-                patient.get('middle_name', '') or "-",
+                format_ref_display(patient['reference_number'], patient.get('reference_suffix', '')),
+                name_case(patient['last_name']),
+                name_case(patient['first_name']),
+                name_case(patient.get('middle_name', '')) or "-",
                 age_display,
                 format_phone_number(patient['contact_number']),
                 patient['address'] or "-",
@@ -1223,7 +1223,9 @@ class EditVisitDialog(ctk.CTkToplevel):
         self.bind("<Return>", lambda e: self._save_visit())
 
         # Window config
-        self.title(f"Edit Record #{self.visit_data['reference_number']}")
+        from utils import format_ref_display
+        _ref_display = format_ref_display(self.visit_data['reference_number'], self.visit_data.get('reference_suffix', ''))
+        self.title(f"Edit Record #{_ref_display}")
         self.geometry(f"{_s(1100)}x{_s(850)}")
         self.resizable(False, False)
         self.configure(fg_color=COLORS['bg_dark'])
@@ -1250,11 +1252,12 @@ class EditVisitDialog(ctk.CTkToplevel):
         header_content.pack(expand=True, fill="both", padx=20)
 
         # Calculate patient age
-        from utils import calculate_age
+        from utils import calculate_age, format_ref_display, name_case
         age = calculate_age(self.visit_data.get('date_of_birth'))
         age_str = f" ({age} yrs)" if age else ""
+        _ref_display = format_ref_display(self.visit_data['reference_number'], self.visit_data.get('reference_suffix', ''))
 
-        ctk.CTkLabel(header_content, text=f"Edit Record #{self.visit_data['reference_number']}  •  Patient: {self.visit_data['full_name']}{age_str}",
+        ctk.CTkLabel(header_content, text=f"Edit Record #{_ref_display}  •  Patient: {name_case(self.visit_data['full_name'])}{age_str}",
                     font=_sf(18, "bold"),
                     text_color="#ffffff").pack(expand=True)
 
@@ -1275,7 +1278,8 @@ class EditVisitDialog(ctk.CTkToplevel):
         ctk.CTkLabel(ref_col, text="Patient ID #", font=_sf(12, "bold"), text_color=COLORS['accent_blue']).pack(anchor="w")
         self.entry_ref = ctk.CTkEntry(ref_col, width=_s(150), height=_s(40), font=_sf(16, "bold"), justify="center")
         self.entry_ref.pack(pady=5)
-        self.entry_ref.insert(0, str(self.visit_data['reference_number']))
+        from utils import format_ref_display as _frd
+        self.entry_ref.insert(0, _frd(self.visit_data['reference_number'], self.visit_data.get('reference_suffix', '')))
 
         # Date & Time (Right)
         dt_col = ctk.CTkFrame(inner_top, fg_color="transparent")
@@ -1375,20 +1379,23 @@ class EditVisitDialog(ctk.CTkToplevel):
 
     def _save_visit(self):
         """Save updated visit to database"""
-        try:
-            new_ref = int(self.entry_ref.get().strip())
-            # If reference changed, check if it belongs to someone else
-            if new_ref != self.visit_data['reference_number']:
-                existing = self.db.get_patient_by_reference(new_ref)
-                if existing:
-                    full_name = f"{existing['last_name']}, {existing['first_name']}"
-                    if not messagebox.askyesno("Patient ID Taken", 
-                        f"Patient ID #{new_ref} is already taken by:\n\n{full_name}\n\nReassign this visit log to this patient?", 
-                        parent=self):
-                        return
-        except ValueError:
-            messagebox.showerror("Validation Error", "Invalid reference number!")
+        from utils import parse_reference_input, format_ref_display
+        new_ref, new_suffix = parse_reference_input(self.entry_ref.get())
+        if new_ref is None:
+            messagebox.showerror("Validation Error", "Invalid reference number! Use digits, or digits + letter (e.g. 22454B).")
             return
+
+        orig_ref = self.visit_data['reference_number']
+        orig_suffix = self.visit_data.get('reference_suffix', '')
+        if new_ref != orig_ref or new_suffix != orig_suffix:
+            existing = self.db.get_patient_by_reference(new_ref, new_suffix)
+            if existing:
+                full_name = f"{existing['last_name']}, {existing['first_name']}"
+                display_id = format_ref_display(new_ref, new_suffix)
+                if not messagebox.askyesno("Patient ID Taken",
+                    f"Patient ID #{display_id} is already taken by:\n\n{full_name}\n\nReassign this visit log to this patient?",
+                    parent=self):
+                    return
 
         from utils import ui_date_to_db, validate_date, parse_time_input, safe_float
         date_ui = self.entry_date.get().strip()
@@ -1396,7 +1403,7 @@ class EditVisitDialog(ctk.CTkToplevel):
         if not is_valid:
             messagebox.showerror("Validation Error", err)
             return
-            
+
         visit_date = ui_date_to_db(date_ui)
         time_str = f"{self.hour_var.get()}:{self.minute_var.get()} {self.ampm_var.get()}"
         visit_time = parse_time_input(time_str) or "00:00:00"
@@ -1407,12 +1414,11 @@ class EditVisitDialog(ctk.CTkToplevel):
         temp = safe_float(self.entry_temp.get())
         notes = self.entry_notes.get("1.0", "end-1c").strip()
 
-        if self.db.update_visit(visit_id=self.visit_id, visit_date=visit_date, visit_time=visit_time, 
+        if self.db.update_visit(visit_id=self.visit_id, visit_date=visit_date, visit_time=visit_time,
                                 weight=weight, height=height, bp=bp, temp=temp, notes=notes, reference_number=new_ref):
             self.callback()
             self.destroy()
-            from utils import format_reference_number
-            messagebox.showinfo("Success", f"Record #{format_reference_number(new_ref)} updated!")
+            messagebox.showinfo("Success", f"Record #{format_ref_display(new_ref, new_suffix)} updated!")
         else:
             messagebox.showerror("Error", "Failed to update record!")
 
@@ -1444,26 +1450,34 @@ class EditVisitDialog(ctk.CTkToplevel):
     def _save_visit(self):
         """Save updated visit to database"""
         # Get reference number
-        try:
-            new_ref = int(self.entry_ref.get().strip())
-            # If changed, check availability
-            if new_ref != self.visit_data['reference_number']:
-                if not self.db.is_reference_number_available(new_ref):
-                    messagebox.showerror("Validation Error", f"Reference #{new_ref} already exists!", parent=self)
-                    return
-        except ValueError:
-            messagebox.showerror("Validation Error", "Invalid reference number!", parent=self)
+        from utils import parse_reference_input, format_ref_display
+        new_ref, new_suffix = parse_reference_input(self.entry_ref.get())
+        if new_ref is None:
+            messagebox.showerror("Validation Error", "Invalid reference number! Use digits, or digits + letter (e.g. 22454B).", parent=self)
             return
+
+        orig_ref = self.visit_data['reference_number']
+        orig_suffix = self.visit_data.get('reference_suffix', '')
+        if new_ref != orig_ref or new_suffix != orig_suffix:
+            if not self.db.is_reference_number_available(new_ref, new_suffix):
+                existing = self.db.get_patient_by_reference(new_ref, new_suffix)
+                if existing:
+                    full_name = f"{existing['last_name']}, {existing['first_name']}"
+                    display_id = format_ref_display(new_ref, new_suffix)
+                    if not messagebox.askyesno("Patient ID Taken",
+                        f"Patient ID #{display_id} belongs to:\n\n{full_name}\n\nReassign this visit to this patient?",
+                        parent=self):
+                        return
 
         # Get date
         visit_date_ui = self.entry_date.get().strip()
         from utils import ui_date_to_db, validate_date
-        
+
         is_valid, err = validate_date(visit_date_ui)
         if not is_valid:
             messagebox.showerror("Validation Error", err, parent=self)
             return
-            
+
         visit_date = ui_date_to_db(visit_date_ui)
         if not visit_date:
             messagebox.showerror("Validation Error", "Invalid date format! Use MM/DD/YYYY", parent=self)
@@ -1501,8 +1515,7 @@ class EditVisitDialog(ctk.CTkToplevel):
         if success:
             self.callback()
             self.destroy()
-            from utils import format_reference_number
-            messagebox.showinfo("Success", f"Record #{format_reference_number(new_ref)} updated!")
+            messagebox.showinfo("Success", f"Record #{format_ref_display(new_ref, new_suffix)} updated!")
         else:
             messagebox.showerror("Error", "Failed to update record!", parent=self)
 
@@ -1810,6 +1823,7 @@ class AddPatientDialog(ctk.CTkToplevel):
         self.entry_last_name = self._add_field(name_row, "Last Name", 0, 1, width=_s(280))
         self.entry_first_name = self._add_field(name_row, "First Name", 0, 2, width=_s(280))
         self.entry_middle_name = self._add_field(name_row, "Middle Name", 0, 3, width=_s(220))
+        self.entry_name_suffix = self._add_field(name_row, "Suffix (Jr./Sr./III)", 0, 4, width=_s(160), label_size=11)
 
         # Details Row
         det_row = ctk.CTkFrame(inner_core, fg_color="transparent")
@@ -1894,11 +1908,11 @@ class AddPatientDialog(ctk.CTkToplevel):
         self.bind("<Return>", lambda e: self._save_patient())
         self.entry_last_name.focus()
 
-    def _add_field(self, parent, label, row, col, width, pack=False):
+    def _add_field(self, parent, label, row, col, width, pack=False, label_size=15):
         f = ctk.CTkFrame(parent, fg_color="transparent")
         if pack: f.pack(fill="x", pady=2)
         else: f.pack(side="left", padx=(0, 15))
-        ctk.CTkLabel(f, text=label, font=_sf(15, "bold")).pack(anchor="w")
+        ctk.CTkLabel(f, text=label, font=_sf(label_size, "bold")).pack(anchor="w")
         e = ctk.CTkEntry(f, width=width, height=_s(48), font=_sf(15))
         e.pack(pady=2)
         return e
@@ -1940,37 +1954,43 @@ class AddPatientDialog(ctk.CTkToplevel):
         last_name = self.entry_last_name.get().strip() or "Unknown"
         first_name = self.entry_first_name.get().strip() or "Unknown"
         middle_name = self.entry_middle_name.get().strip()
-        
+        name_suffix = self.entry_name_suffix.get().strip()
+
         # Reference Number / ID Conflict Check
-        existing_patient_id = None
-        try:
-            raw_ref = self.entry_ref_num.get().strip()
-            ref_num = int(raw_ref) if raw_ref else None
-            
-            if ref_num:
-                # Check if ID is taken anywhere (Patient or Visit)
-                if not self.db.is_reference_number_available(ref_num):
-                    existing = self.db.get_patient_by_reference(ref_num)
-                    if existing:
-                        full_name = f"{existing['last_name']}, {existing['first_name']}"
-                        if messagebox.askyesno("Patient ID Taken", 
-                            f"Patient ID #{ref_num} is already taken by:\n\n{full_name}\n\nWould you like to OVERWRITE this patient's information?", 
-                            parent=self):
-                            existing_patient_id = existing['patient_id']
-                        else:
-                            return # Cancel save if they said No
-                    else:
-                        # ID is taken by a visit log but no patient record exists (Ghost/Dangling)
-                        if messagebox.askyesno("ID Taken by Visit Logs",
-                            f"Patient ID #{ref_num} is assigned to existing visit logs, but no patient profile exists.\n\nWould you like to ADOPT this ID for the new patient?",
-                            parent=self):
-                            # We just proceed with this ID, add_patient will handle it
-                            pass
-                        else:
-                            return
-        except ValueError:
-            messagebox.showerror("Validation Error", "Patient ID must be a number!", parent=self)
-            return
+        from utils import parse_reference_input, format_ref_display
+        raw_ref = self.entry_ref_num.get().strip()
+        if raw_ref:
+            ref_num, ref_suffix = parse_reference_input(raw_ref)
+            if ref_num is None:
+                messagebox.showerror("Validation Error", "Patient ID must be a number or number+letter (e.g. 22454B)!", parent=self)
+                return
+        else:
+            ref_num, ref_suffix = None, ''
+
+        if ref_num and not self.db.is_reference_number_available(ref_num, ref_suffix):
+            if ref_suffix == '':
+                # User typed a plain number that already exists — auto-assign next suffix
+                next_suffix = self.db.get_next_suffix_for_reference(ref_num)
+                if next_suffix is None:
+                    messagebox.showerror("ID Exhausted",
+                        f"Patient ID #{ref_num} already has all letter suffixes (A–P) assigned.", parent=self)
+                    return
+                display_new = format_ref_display(ref_num, next_suffix)
+                display_orig = format_ref_display(ref_num, 'A')
+                if not messagebox.askyesno("Duplicate Patient ID",
+                    f"Patient ID #{ref_num} is already in use.\n\n"
+                    f"The existing patient will be re-labeled as #{display_orig}.\n"
+                    f"This new patient will be saved as #{display_new}.\n\nContinue?",
+                    parent=self):
+                    return
+                ref_suffix = next_suffix
+            else:
+                # User typed an explicit suffix that's already taken — hard error
+                existing = self.db.get_patient_by_reference(ref_num, ref_suffix)
+                full_name = f"{existing['last_name']}, {existing['first_name']}" if existing else "another patient"
+                messagebox.showerror("Patient ID Taken",
+                    f"Patient ID #{format_ref_display(ref_num, ref_suffix)} is already assigned to {full_name}.", parent=self)
+                return
 
         dob_ui = self.entry_dob.get().strip()
         sex = self.sex_var.get().strip()
@@ -2007,43 +2027,24 @@ class AddPatientDialog(ctk.CTkToplevel):
                 messagebox.showerror("Validation Error", f"Parent contact: {err}", parent=self)
                 return
 
-        # Add or update database
-        if existing_patient_id:
-            success = self.db.update_patient(
-                patient_id=existing_patient_id,
-                last_name=last_name,
-                first_name=first_name,
-                middle_name=middle_name,
-                dob=dob,
-                sex=sex,
-                civil_status=civil_status,
-                occupation=occupation,
-                parents=parents,
-                parent_contact=parent_contact,
-                school=school,
-                contact=contact,
-                address=address,
-                notes=notes,
-                reference_number=ref_num
-            )
-            patient_id = existing_patient_id if success else None
-        else:
-            patient_id = self.db.add_patient(
-                last_name=last_name,
-                first_name=first_name,
-                middle_name=middle_name,
-                dob=dob,
-                sex=sex,
-                civil_status=civil_status,
-                occupation=occupation,
-                parents=parents,
-                parent_contact=parent_contact,
-                school=school,
-                contact=contact,
-                address=address,
-                notes=notes,
-                reference_number=ref_num
-            )
+        patient_id = self.db.add_patient(
+            last_name=last_name,
+            first_name=first_name,
+            middle_name=middle_name,
+            name_suffix=name_suffix,
+            dob=dob,
+            sex=sex,
+            civil_status=civil_status,
+            occupation=occupation,
+            parents=parents,
+            parent_contact=parent_contact,
+            school=school,
+            contact=contact,
+            address=address,
+            notes=notes,
+            reference_number=ref_num,
+            reference_suffix=ref_suffix
+        )
 
         if patient_id:
             self.callback(patient_id)
@@ -2069,6 +2070,7 @@ class AddPatientDialog(ctk.CTkToplevel):
                 'last_name': self.entry_last_name.get().strip() or "Unknown",
                 'first_name': self.entry_first_name.get().strip() or "Unknown",
                 'middle_name': self.entry_middle_name.get().strip(),
+                'name_suffix': self.entry_name_suffix.get().strip(),
                 'raw_ref': self.entry_ref_num.get().strip(),
                 'dob_ui': self.entry_dob.get().strip(),
                 'sex': self.sex_var.get().strip(),
@@ -2086,11 +2088,38 @@ class AddPatientDialog(ctk.CTkToplevel):
             return
 
         # Parse reference number
-        try:
-            ref_num = int(data['raw_ref']) if data['raw_ref'] else None
-        except ValueError:
-            messagebox.showerror("Validation Error", "Patient ID must be a number!", parent=self)
-            return
+        from utils import parse_reference_input, format_ref_display
+        if data['raw_ref']:
+            ref_num, ref_suffix = parse_reference_input(data['raw_ref'])
+            if ref_num is None:
+                messagebox.showerror("Validation Error", "Patient ID must be a number or number+letter (e.g. 22454B)!", parent=self)
+                return
+        else:
+            ref_num, ref_suffix = None, ''
+
+        # Duplicate ID handling
+        if ref_num and not self.db.is_reference_number_available(ref_num, ref_suffix):
+            if ref_suffix == '':
+                next_suffix = self.db.get_next_suffix_for_reference(ref_num)
+                if next_suffix is None:
+                    messagebox.showerror("ID Exhausted",
+                        f"Patient ID #{ref_num} already has all letter suffixes (A–P) assigned.", parent=self)
+                    return
+                display_new = format_ref_display(ref_num, next_suffix)
+                display_orig = format_ref_display(ref_num, 'A')
+                if not messagebox.askyesno("Duplicate Patient ID",
+                    f"Patient ID #{ref_num} is already in use.\n\n"
+                    f"The existing patient will be re-labeled as #{display_orig}.\n"
+                    f"This new patient will be saved as #{display_new}.\n\nContinue?",
+                    parent=self):
+                    return
+                ref_suffix = next_suffix
+            else:
+                existing = self.db.get_patient_by_reference(ref_num, ref_suffix)
+                full_name = f"{existing['last_name']}, {existing['first_name']}" if existing else "another patient"
+                messagebox.showerror("Patient ID Taken",
+                    f"Patient ID #{format_ref_display(ref_num, ref_suffix)} is already assigned to {full_name}.", parent=self)
+                return
 
         from utils import ui_date_to_db, validate_date, validate_contact_number
 
@@ -2121,6 +2150,7 @@ class AddPatientDialog(ctk.CTkToplevel):
             last_name=data['last_name'],
             first_name=data['first_name'],
             middle_name=data['middle_name'],
+            name_suffix=data['name_suffix'],
             dob=dob,
             sex=data['sex'],
             civil_status=data['civil_status'],
@@ -2131,7 +2161,8 @@ class AddPatientDialog(ctk.CTkToplevel):
             contact=data['contact'],
             address=data['address'],
             notes=data['notes'],
-            reference_number=ref_num
+            reference_number=ref_num,
+            reference_suffix=ref_suffix
         )
 
         if patient_id:
@@ -2190,18 +2221,20 @@ class PatientDetailsDialog(ctk.CTkToplevel):
         header_content.pack(expand=True, fill="both", padx=30, pady=20)
         
         # Name
-        first = self.patient_data.get('first_name', '')
-        middle = self.patient_data.get('middle_name', '')
-        last = self.patient_data.get('last_name', '')
-        full_name = f"{last}, {first}" + (f" {middle}" if middle else "")
-        
-        ctk.CTkLabel(header_content, text=f"👤 {full_name}", 
+        from utils import name_case as _nc
+        first = _nc(self.patient_data.get('first_name', ''))
+        middle = _nc(self.patient_data.get('middle_name', ''))
+        last = _nc(self.patient_data.get('last_name', ''))
+        suffix = _nc(self.patient_data.get('name_suffix', ''))
+        full_name = f"{last}, {first}" + (f" {middle}" if middle else "") + (f" {suffix}" if suffix else "")
+
+        ctk.CTkLabel(header_content, text=f"👤 {full_name}",
                     font=_sf(24, "bold"),
                     text_color="#ffffff").pack(anchor="w")
         
-        from utils import format_reference_number
-        ref_num = format_reference_number(self.patient_data.get('reference_number'))
-        ctk.CTkLabel(header_content, text=f"Patient ID: #{ref_num}", 
+        from utils import format_ref_display
+        ref_num = format_ref_display(self.patient_data.get('reference_number'), self.patient_data.get('reference_suffix', ''))
+        ctk.CTkLabel(header_content, text=f"Patient ID: #{ref_num}",
                     font=_sf(14),
                     text_color="#ffffff").pack(anchor="w")
 
@@ -2411,7 +2444,10 @@ class EditPatientDialog(ctk.CTkToplevel):
         self.entry_ref_num = ctk.CTkEntry(fields_frame, height=_s(40), corner_radius=14,
                                          font=_sf(14))
         self.entry_ref_num.pack(fill="x", pady=(5, 15))
-        self.entry_ref_num.insert(0, str(self.patient_data.get('reference_number') or ""))
+        from utils import format_ref_display as _frd2
+        _ref_val = self.patient_data.get('reference_number')
+        _suf_val = self.patient_data.get('reference_suffix', '')
+        self.entry_ref_num.insert(0, _frd2(_ref_val, _suf_val) if _ref_val else "")
 
         # Name section
         ctk.CTkLabel(fields_frame, text="Personal Information",
@@ -2449,6 +2485,17 @@ class EditPatientDialog(ctk.CTkToplevel):
         self.entry_middle_name.pack(fill="x", pady=(5, 15))
         if self.patient_data.get('middle_name'):
             self.entry_middle_name.insert(0, self.patient_data['middle_name'])
+
+        # Name Suffix
+        ctk.CTkLabel(fields_frame, text="Suffix (Jr./Sr./III) (Optional)",
+                    font=_sf(11),
+                    text_color=COLORS['text_primary'],
+                    anchor="w").pack(fill="x")
+        self.entry_name_suffix = ctk.CTkEntry(fields_frame, height=_s(40), corner_radius=14,
+                                             font=_sf(14))
+        self.entry_name_suffix.pack(fill="x", pady=(5, 15))
+        if self.patient_data.get('name_suffix'):
+            self.entry_name_suffix.insert(0, self.patient_data['name_suffix'])
 
         # Date of Birth, Sex and Civil Status Row
         row1_frame = ctk.CTkFrame(fields_frame, fg_color="transparent")
@@ -2624,34 +2671,45 @@ class EditPatientDialog(ctk.CTkToplevel):
         last_name = self.entry_last_name.get().strip() or "Unknown"
         first_name = self.entry_first_name.get().strip() or "Unknown"
         middle_name = self.entry_middle_name.get().strip()
-        
-        # Reference Number / ID Conflict Check
-        existing_patient_id = None
-        try:
-            raw_ref = self.entry_ref_num.get().strip()
-            ref_num = int(raw_ref) if raw_ref else None
-            
-            # Only check if ID changed
-            if ref_num and ref_num != self.patient_data.get('reference_number'):
-                if not self.db.is_reference_number_available(ref_num):
-                    existing = self.db.get_patient_by_reference(ref_num)
-                    if existing:
-                        full_name = f"{existing['last_name']}, {existing['first_name']}"
-                        if messagebox.askyesno("Patient ID Taken", 
-                            f"Patient ID #{ref_num} is already taken by:\n\n{full_name}\n\nWould you like to OVERWRITE this patient's information and MERGE your current edit into it?", 
-                            parent=self):
-                            existing_patient_id = existing['patient_id']
-                        else:
-                            return
-                    else:
-                        # Taken by visit logs but no patient
-                        if not messagebox.askyesno("ID Taken by Visit Logs",
-                            f"Patient ID #{ref_num} is assigned to existing visit logs, but no patient profile exists.\n\nWould you like to REASSIGN this patient to that ID?",
-                            parent=self):
-                            return
-        except ValueError:
-            messagebox.showerror("Validation Error", "Patient ID must be a number!", parent=self)
-            return
+        name_suffix = self.entry_name_suffix.get().strip()
+
+        # Reference Number / ID parse
+        from utils import parse_reference_input, format_ref_display
+        raw_ref = self.entry_ref_num.get().strip()
+        if raw_ref:
+            ref_num, ref_suffix = parse_reference_input(raw_ref)
+            if ref_num is None:
+                messagebox.showerror("Validation Error", "Patient ID must be a number or number+letter (e.g. 22454B)!", parent=self)
+                return
+        else:
+            ref_num, ref_suffix = None, ''
+
+        # Only check conflict if the ID/suffix actually changed
+        orig_ref = self.patient_data.get('reference_number')
+        orig_suffix = self.patient_data.get('reference_suffix', '')
+        if ref_num and (ref_num != orig_ref or ref_suffix != orig_suffix):
+            if not self.db.is_reference_number_available(ref_num, ref_suffix):
+                if ref_suffix == '':
+                    next_suffix = self.db.get_next_suffix_for_reference(ref_num)
+                    if next_suffix is None:
+                        messagebox.showerror("ID Exhausted",
+                            f"Patient ID #{ref_num} already has all letter suffixes (A–P) assigned.", parent=self)
+                        return
+                    display_new = format_ref_display(ref_num, next_suffix)
+                    display_orig = format_ref_display(ref_num, 'A')
+                    if not messagebox.askyesno("Duplicate Patient ID",
+                        f"Patient ID #{ref_num} is already in use.\n\n"
+                        f"The existing patient will be re-labeled as #{display_orig}.\n"
+                        f"This patient will be updated to #{display_new}.\n\nContinue?",
+                        parent=self):
+                        return
+                    ref_suffix = next_suffix
+                else:
+                    existing = self.db.get_patient_by_reference(ref_num, ref_suffix)
+                    full_name = f"{existing['last_name']}, {existing['first_name']}" if existing else "another patient"
+                    messagebox.showerror("Patient ID Taken",
+                        f"Patient ID #{format_ref_display(ref_num, ref_suffix)} is already assigned to {full_name}.", parent=self)
+                    return
 
         dob_ui = self.entry_dob.get().strip()
         sex = self.sex_var.get().strip()
@@ -2688,15 +2746,12 @@ class EditPatientDialog(ctk.CTkToplevel):
                 messagebox.showerror("Validation Error", f"Parent contact: {err}", parent=self)
                 return
 
-        # Update database
-        # If we chose to overwrite another patient ID, we update THAT patient's record
-        target_id = existing_patient_id if existing_patient_id else self.patient_id
-        
         success = self.db.update_patient(
-            patient_id=target_id,
+            patient_id=self.patient_id,
             last_name=last_name,
             first_name=first_name,
             middle_name=middle_name,
+            name_suffix=name_suffix,
             dob=dob,
             sex=sex,
             civil_status=civil_status,
@@ -2707,17 +2762,12 @@ class EditPatientDialog(ctk.CTkToplevel):
             contact=contact,
             address=address,
             notes=notes,
-            reference_number=ref_num
+            reference_number=ref_num,
+            reference_suffix=ref_suffix
         )
 
         if success:
-            # If we overwrote a different record, merge history and delete the original source
-            if existing_patient_id and existing_patient_id != self.patient_id:
-                self.db.merge_patients(self.patient_id, existing_patient_id)
-                messagebox.showinfo("Success", "Patient ID reassigned and records merged successfully!")
-            else:
-                messagebox.showinfo("Success", "Patient details updated successfully!")
-            
+            messagebox.showinfo("Success", "Patient details updated successfully!")
             self.callback()
             self.destroy()
         else:
@@ -3241,24 +3291,24 @@ class EncodeVisitDialog(ctk.CTkToplevel):
             self.lbl_ref_validation.configure(text="", text_color=COLORS['accent_red'])
             return
 
-        try:
-            ref_num = int(ref_str)
-            if ref_num < 1:
-                self.lbl_ref_validation.configure(
-                    text="Patient ID must be 1 or higher",
-                    text_color=COLORS['accent_red'])
-            elif not self.db.is_reference_number_available(ref_num):
-                self.lbl_ref_validation.configure(
-                    text=f"ID #{ref_num} already exists!",
-                    text_color=COLORS['accent_red'])
-            else:
-                self.lbl_ref_validation.configure(
-                    text=f"ID #{ref_num} is available",
-                    text_color=COLORS['accent_green'])
-        except ValueError:
+        from utils import parse_reference_input, format_ref_display
+        ref_num, ref_suffix = parse_reference_input(ref_str)
+        if ref_num is None:
             self.lbl_ref_validation.configure(
-                text="Enter a valid number",
+                text="Enter a valid number (e.g. 22454 or 22454B)",
                 text_color=COLORS['accent_red'])
+        elif ref_num < 1:
+            self.lbl_ref_validation.configure(
+                text="Patient ID must be 1 or higher",
+                text_color=COLORS['accent_red'])
+        elif not self.db.is_reference_number_available(ref_num, ref_suffix):
+            self.lbl_ref_validation.configure(
+                text=f"ID #{format_ref_display(ref_num, ref_suffix)} already exists!",
+                text_color=COLORS['accent_red'])
+        else:
+            self.lbl_ref_validation.configure(
+                text=f"ID #{format_ref_display(ref_num, ref_suffix)} is available",
+                text_color=COLORS['accent_green'])
 
     def _load_patients(self, query: str = ""):
         """Load patients into modern scrollable list"""
@@ -3273,16 +3323,18 @@ class EncodeVisitDialog(ctk.CTkToplevel):
         else:
             patients = self.db.get_all_patients()
 
-        from utils import format_reference_number
+        from utils import format_ref_display, name_case
         for idx, patient in enumerate(patients):
-            first = patient.get('first_name', '')
-            middle = patient.get('middle_name', '')
-            last = patient.get('last_name', '')
-            full_name = f"{last}, {first}" + (f" {middle}" if middle else "")
+            first = name_case(patient.get('first_name', ''))
+            middle = name_case(patient.get('middle_name', ''))
+            last = name_case(patient.get('last_name', ''))
+            suffix = name_case(patient.get('name_suffix', ''))
+            full_name = f"{last}, {first}" + (f" {middle}" if middle else "") + (f" {suffix}" if suffix else "")
 
             patient_id = patient['patient_id']
             ref_num = patient['reference_number']
-            formatted_ref = format_reference_number(ref_num)
+            ref_suffix = patient.get('reference_suffix', '')
+            formatted_ref = format_ref_display(ref_num, ref_suffix)
             self.patient_data[idx] = (patient_id, full_name, ref_num)
 
             # Create modern clickable card for each patient
@@ -3357,7 +3409,9 @@ class EditVisitDialog(ctk.CTkToplevel):
         self.bind("<Return>", lambda e: self._save())
 
         # Window config
-        self.title(f"Edit Record #{self.visit_data['reference_number']}")
+        from utils import format_ref_display as _frd3
+        _edit_ref_display = _frd3(self.visit_data['reference_number'], self.visit_data.get('reference_suffix', ''))
+        self.title(f"Edit Record #{_edit_ref_display}")
         self.geometry(f"{_s(1150)}x{_s(550)}")
         self.resizable(False, False)
         self.configure(fg_color=COLORS['bg_dark'])
@@ -3373,10 +3427,12 @@ class EditVisitDialog(ctk.CTkToplevel):
 
     def _build_ui(self):
         # Header
+        from utils import format_ref_display as _frd3
+        _edit_ref_display = _frd3(self.visit_data['reference_number'], self.visit_data.get('reference_suffix', ''))
         header = ctk.CTkFrame(self, fg_color=COLORS['accent_blue'], corner_radius=0, height=_s(60))
         header.pack(fill="x")
         header.pack_propagate(False)
-        ctk.CTkLabel(header, text=f"✏️ Edit Visit Record #{self.visit_data['reference_number']}", 
+        ctk.CTkLabel(header, text=f"✏️ Edit Visit Record #{_edit_ref_display}", 
                     font=_sf(20, "bold"), text_color="#ffffff").pack(expand=True)
 
         # Form Container
@@ -3398,7 +3454,8 @@ class EditVisitDialog(ctk.CTkToplevel):
         pat_row = ctk.CTkFrame(pat_sec, fg_color="transparent")
         pat_row.pack(fill="x")
         
-        ctk.CTkLabel(pat_row, text=f"{self.visit_data['last_name']}, {self.visit_data['first_name']}", 
+        from utils import name_case as _nc4
+        ctk.CTkLabel(pat_row, text=f"{_nc4(self.visit_data['last_name'])}, {_nc4(self.visit_data['first_name'])}",
                     font=_sf(16, "bold")).pack(side="left")
         
         ctk.CTkButton(pat_row, text="📋 History", command=self._view_patient_history,
@@ -3412,7 +3469,8 @@ class EditVisitDialog(ctk.CTkToplevel):
 
         self.entry_ref = ctk.CTkEntry(ref_sec, width=_s(110), height=_s(48), font=_sf(18, "bold"), justify="center", text_color=COLORS['accent_orange'])
         self.entry_ref.pack(pady=2)
-        self.entry_ref.insert(0, str(self.visit_data['reference_number']))
+        from utils import format_ref_display as _frd4
+        self.entry_ref.insert(0, _frd4(self.visit_data['reference_number'], self.visit_data.get('reference_suffix', '')))
 
         # 3. Date & Time
         dt_sec = ctk.CTkFrame(inner_core, fg_color="transparent")
@@ -3485,23 +3543,25 @@ class EditVisitDialog(ctk.CTkToplevel):
         PatientVisitLogsDialog(self, self.db, self.visit_data['patient_id'], self.visit_data)
 
     def _save(self):
-        from utils import ui_date_to_db, validate_date, parse_time_input, safe_float
-        
+        from utils import ui_date_to_db, validate_date, parse_time_input, safe_float, parse_reference_input, format_ref_display
+
         # 1. Validate Reference Number
-        try:
-            new_ref = int(self.entry_ref.get().strip())
-            # If changed, check if it belongs to someone else
-            if new_ref != self.visit_data['reference_number']:
-                existing = self.db.get_patient_by_reference(new_ref)
-                if existing:
-                    full_name = f"{existing['last_name']}, {existing['first_name']}"
-                    if not messagebox.askyesno("Patient ID Taken", 
-                        f"Patient ID #{new_ref} is already taken by:\n\n{full_name}\n\nReassign this visit log to this patient?", 
-                        parent=self):
-                        return
-        except ValueError:
-            messagebox.showerror("Validation Error", "Invalid reference number! Please enter digits only.")
+        new_ref, new_suffix = parse_reference_input(self.entry_ref.get())
+        if new_ref is None:
+            messagebox.showerror("Validation Error", "Invalid reference number! Use digits, or digits + letter (e.g. 22454B).")
             return
+
+        orig_ref = self.visit_data['reference_number']
+        orig_suffix = self.visit_data.get('reference_suffix', '')
+        if new_ref != orig_ref or new_suffix != orig_suffix:
+            existing = self.db.get_patient_by_reference(new_ref, new_suffix)
+            if existing:
+                full_name = f"{existing['last_name']}, {existing['first_name']}"
+                display_id = format_ref_display(new_ref, new_suffix)
+                if not messagebox.askyesno("Patient ID Taken",
+                    f"Patient ID #{display_id} belongs to:\n\n{full_name}\n\nReassign this visit log to this patient?",
+                    parent=self):
+                    return
 
         # 2. Validate Date
         date_ui = self.entry_date.get().strip()
@@ -3546,26 +3606,34 @@ class EditVisitDialog(ctk.CTkToplevel):
     def _save_visit(self):
         """Save updated visit to database"""
         # Get reference number
-        try:
-            new_ref = int(self.entry_ref.get().strip())
-            # If changed, check availability
-            if new_ref != self.visit_data['reference_number']:
-                if not self.db.is_reference_number_available(new_ref):
-                    messagebox.showerror("Validation Error", f"Reference #{new_ref} already exists!", parent=self)
-                    return
-        except ValueError:
-            messagebox.showerror("Validation Error", "Invalid reference number!", parent=self)
+        from utils import parse_reference_input, format_ref_display
+        new_ref, new_suffix = parse_reference_input(self.entry_ref.get())
+        if new_ref is None:
+            messagebox.showerror("Validation Error", "Invalid reference number! Use digits, or digits + letter (e.g. 22454B).", parent=self)
             return
+
+        orig_ref = self.visit_data['reference_number']
+        orig_suffix = self.visit_data.get('reference_suffix', '')
+        if new_ref != orig_ref or new_suffix != orig_suffix:
+            if not self.db.is_reference_number_available(new_ref, new_suffix):
+                existing = self.db.get_patient_by_reference(new_ref, new_suffix)
+                if existing:
+                    full_name = f"{existing['last_name']}, {existing['first_name']}"
+                    display_id = format_ref_display(new_ref, new_suffix)
+                    if not messagebox.askyesno("Patient ID Taken",
+                        f"Patient ID #{display_id} belongs to:\n\n{full_name}\n\nReassign this visit to this patient?",
+                        parent=self):
+                        return
 
         # Get date
         visit_date_ui = self.entry_date.get().strip()
         from utils import ui_date_to_db, validate_date
-        
+
         is_valid, err = validate_date(visit_date_ui)
         if not is_valid:
             messagebox.showerror("Validation Error", err, parent=self)
             return
-            
+
         visit_date = ui_date_to_db(visit_date_ui)
         if not visit_date:
             messagebox.showerror("Validation Error", "Invalid date format! Use MM/DD/YYYY", parent=self)
@@ -3603,8 +3671,7 @@ class EditVisitDialog(ctk.CTkToplevel):
         if success:
             self.callback()
             self.destroy()
-            from utils import format_reference_number
-            messagebox.showinfo("Success", f"Record #{format_reference_number(new_ref)} updated!")
+            messagebox.showinfo("Success", f"Record #{format_ref_display(new_ref, new_suffix)} updated!")
         else:
             messagebox.showerror("Error", "Failed to update record!", parent=self)
 
@@ -4183,10 +4250,11 @@ class PatientVisitLogsDialog(ctk.CTkToplevel):
         header.pack(fill="x", padx=20, pady=20)
         header.pack_propagate(False)
         
-        from utils import format_reference_number
-        ref_num = format_reference_number(self.patient_data.get('reference_number'))
-        full_name = f"{self.patient_data['last_name']}, {self.patient_data['first_name']}"
-        ctk.CTkLabel(header, text=f"📋 Visit Logs: {full_name} (ID: {ref_num})", 
+        from utils import format_ref_display, name_case as _nc2
+        ref_num = format_ref_display(self.patient_data.get('reference_number'), self.patient_data.get('reference_suffix', ''))
+        _suffix2 = _nc2(self.patient_data.get('name_suffix', ''))
+        full_name = f"{_nc2(self.patient_data['last_name'])}, {_nc2(self.patient_data['first_name'])}" + (f" {_suffix2}" if _suffix2 else "")
+        ctk.CTkLabel(header, text=f"📋 Visit Logs: {full_name} (ID: {ref_num})",
                     font=_sf(20, "bold"),
                     text_color="#ffffff").pack(expand=True)
 
@@ -4317,11 +4385,12 @@ class PatientVisitLogsDialog(ctk.CTkToplevel):
 
         for item in self.tree.get_children(): self.tree.delete(item)
 
-        from utils import format_reference_number, format_time_12hr, format_date_readable
+        from utils import format_ref_display, format_time_12hr, format_date_readable
+        _pat_suffix = self.patient_data.get('reference_suffix', '')
         for v in visits:
             self.tree.insert("", "end", values=(
                 v['visit_id'],
-                format_reference_number(v['reference_number']),
+                format_ref_display(v['reference_number'], _pat_suffix),
                 format_date_readable(v['visit_date']),
                 format_time_12hr(v['visit_time']),
                 f"{v['weight_kg']} kg" if v.get('weight_kg') else "-",
@@ -4549,16 +4618,17 @@ class OptimizedVisitDialog(ctk.CTkToplevel):
     def _open_patient_picker(self):
         def on_pick(p):
             self.selected_patient = p
-            full_name = f"{p['last_name']}, {p['first_name']}"
-            from utils import format_reference_number
-            ref_num = format_reference_number(p.get('reference_number'))
-            self.lbl_selected_patient.configure(text=f"✓ {full_name} (ID: {ref_num})", 
+            from utils import format_ref_display, name_case as _nc3
+            _suffix3 = _nc3(p.get('name_suffix', ''))
+            full_name = f"{_nc3(p['last_name'])}, {_nc3(p['first_name'])}" + (f" {_suffix3}" if _suffix3 else "")
+            ref_display = format_ref_display(p.get('reference_number'), p.get('reference_suffix', ''))
+            self.lbl_selected_patient.configure(text=f"✓ {full_name} (ID: {ref_display})",
                                                text_color=COLORS['accent_green'])
-            
-            # Auto-fill reference number
+
+            # Auto-fill reference number (show combined ID so user sees the full value)
             if p.get('reference_number'):
                 self.entry_ref.delete(0, "end")
-                self.entry_ref.insert(0, str(p['reference_number']))
+                self.entry_ref.insert(0, ref_display)
 
             self.btn_view_history.pack(side="left", padx=10)
             self.entry_day.focus()
@@ -4585,26 +4655,26 @@ class OptimizedVisitDialog(ctk.CTkToplevel):
             messagebox.showerror("Validation Error", "Please select a patient first!")
             return
 
-        # Reference Number / ID Conflict Check
-        existing_patient_id = None
-        try:
-            ref_num = int(self.entry_ref.get().strip())
-            # Only check availability if it's different from selected patient's current ref
-            if ref_num != self.selected_patient.get('reference_number'):
-                existing = self.db.get_patient_by_reference(ref_num)
-                if existing:
-                    full_name = f"{existing['last_name']}, {existing['first_name']}"
-                    if messagebox.askyesno("Patient ID Taken", 
-                        f"Patient ID #{ref_num} is already taken by:\n\n{full_name}\n\nWould you like to OVERWRITE this patient's information with the current selection?", 
-                        parent=self):
-                        # Note: This is complex because we are recording a visit.
-                        # For now, just allow using the ID for this patient.
-                        existing_patient_id = existing['patient_id']
-                    else:
-                        return
-        except ValueError:
-            messagebox.showerror("Validation Error", "Invalid reference number! Please enter digits only.")
+        # Parse reference number (accepts plain number or number+suffix like "22454B")
+        from utils import parse_reference_input, format_ref_display
+        ref_num, ref_suffix = parse_reference_input(self.entry_ref.get())
+        if ref_num is None:
+            messagebox.showerror("Validation Error", "Invalid reference number! Use digits, or digits + letter (e.g. 22454B).")
             return
+
+        # Only warn if the ref doesn't match the selected patient's own ID
+        pat_ref = self.selected_patient.get('reference_number')
+        pat_suffix = self.selected_patient.get('reference_suffix', '')
+        if ref_num != pat_ref or ref_suffix != pat_suffix:
+            if not self.db.is_reference_number_available(ref_num, ref_suffix):
+                existing = self.db.get_patient_by_reference(ref_num, ref_suffix)
+                if existing and existing['patient_id'] != self.selected_patient['patient_id']:
+                    full_name = f"{existing['last_name']}, {existing['first_name']}"
+                    display_id = format_ref_display(ref_num, ref_suffix)
+                    if not messagebox.askyesno("Patient ID Taken",
+                        f"Patient ID #{display_id} belongs to:\n\n{full_name}\n\nRecord this visit under that patient instead?",
+                        parent=self):
+                        return
 
         from utils import ui_date_to_db, validate_date, parse_time_input, safe_float
         date_ui = f"{self.entry_month.get().strip()}/{self.entry_day.get().strip()}/{self.entry_year.get().strip()}"
@@ -4636,7 +4706,7 @@ class OptimizedVisitDialog(ctk.CTkToplevel):
         )
 
         if visit_id:
-            messagebox.showinfo("Success", f"Visit record #{ref_num} saved successfully!")
+            messagebox.showinfo("Success", f"Visit record #{format_ref_display(ref_num, ref_suffix)} saved successfully!")
             self.callback(visit_id)
             self.destroy()
         else:
@@ -4809,15 +4879,15 @@ class PatientPickerDialog(ctk.CTkToplevel):
         for item in self.tree.get_children():
             self.tree.delete(item)
 
-        from utils import calculate_age, format_date_readable, format_phone_number, format_reference_number
+        from utils import calculate_age, format_date_readable, format_phone_number, format_ref_display, name_case
         for p in patients:
             age = calculate_age(p.get('date_of_birth'))
             last_v = format_date_readable(p.get('last_visit')) if p.get('last_visit') else "Never"
             reg_date = format_date_readable(p.get('registered_date')[:10]) if p.get('registered_date') else "N/A"
-            full_name = f"{p['last_name']}, {p['first_name']}" + (f" {p['middle_name']}" if p.get('middle_name') else "")
-            
+            full_name = f"{name_case(p['last_name'])}, {name_case(p['first_name'])}" + (f" {name_case(p['middle_name'])}" if p.get('middle_name') else "") + (f" {name_case(p['name_suffix'])}" if p.get('name_suffix') else "")
+
             self.tree.insert("", "end", values=(
-                format_reference_number(p.get('reference_number')),
+                format_ref_display(p.get('reference_number'), p.get('reference_suffix', '')),
                 full_name,
                 age if age is not None else "-",
                 p.get('sex') or "-",
